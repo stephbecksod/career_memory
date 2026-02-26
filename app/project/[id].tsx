@@ -73,7 +73,7 @@ export default function ProjectDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/projects')} hitSlop={12}>
           <FontAwesome name="arrow-left" size={18} color={colors.walnut} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Project</Text>

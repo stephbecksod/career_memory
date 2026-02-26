@@ -14,8 +14,8 @@ import { InlineProjectPicker } from '@/components/projects/InlineProjectPicker';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import type { ProfessionalAchievement, AchievementTag, Tag as TagType } from '@/types/database';
 
-interface AchievementFull extends ProfessionalAchievement {
-  achievement_tags: (AchievementTag & { tag: TagType })[];
+interface TagWithDetails extends AchievementTag {
+  tag: TagType | null;
 }
 
 export default function AchievementDetailScreen() {
@@ -25,19 +25,32 @@ export default function AchievementDetailScreen() {
   const userId = useUserStore((s) => s.authUser?.id);
   const queryClient = useQueryClient();
 
-  const { data: achievement, isLoading } = useQuery<AchievementFull>({
+  const { data: achievement, isLoading } = useQuery<ProfessionalAchievement>({
     queryKey: ['achievement', id],
     enabled: !!id && !!userId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('professional_achievements')
-        .select('*, achievement_tags(*, tag:tags(*))')
+        .select('*')
         .eq('achievement_id', id!)
         .eq('user_id', userId!)
         .is('deleted_at', null)
         .single();
       if (error) throw error;
-      return data as AchievementFull;
+      return data as ProfessionalAchievement;
+    },
+  });
+
+  const { data: tags } = useQuery<TagWithDetails[]>({
+    queryKey: ['achievement-tags', id],
+    enabled: !!id && !!achievement,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('achievement_tags')
+        .select('*, tag:tags(*)')
+        .eq('achievement_id', id!);
+      if (error) throw error;
+      return (data ?? []) as TagWithDetails[];
     },
   });
 
@@ -52,6 +65,7 @@ export default function AchievementDetailScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['achievement', id] });
+      queryClient.invalidateQueries({ queryKey: ['achievement-tags', id] });
       queryClient.invalidateQueries({ queryKey: ['highlights'] });
       queryClient.invalidateQueries({ queryKey: ['achievements'] });
     },
@@ -76,12 +90,12 @@ export default function AchievementDetailScreen() {
   if (!achievement) return null;
 
   const name = achievement.ai_generated_name ?? 'Achievement';
-  const confirmedTags = (achievement.achievement_tags ?? []).filter((at) => at.is_confirmed);
+  const confirmedTags = (tags ?? []).filter((at) => at.is_confirmed);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)/entries')} hitSlop={12}>
           <FontAwesome name="arrow-left" size={18} color={colors.walnut} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Achievement</Text>
@@ -155,7 +169,7 @@ export default function AchievementDetailScreen() {
             <Text style={styles.sectionLabel}>TAGS</Text>
             <View style={styles.tagsRow}>
               {confirmedTags.map((at) => (
-                <Tag key={at.achievement_tag_id} label={at.tag?.name ?? at.tag_id} />
+                <Tag key={at.achievement_tag_id} label={at.tag?.name ?? 'Tag'} />
               ))}
             </View>
           </View>

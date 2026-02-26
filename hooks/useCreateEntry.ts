@@ -16,33 +16,55 @@ export function useCreateEntry() {
   const userId = useUserStore((s) => s.authUser?.id);
   const profile = useUserStore((s) => s.profile);
   const { currentCompany } = useCompanies();
-  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ mainInput, starInputs, synthesis, projectId }: CreateEntryInput) => {
       if (!userId) throw new Error('Not authenticated');
 
-      // 1. Create entry row
-      const { data: entry, error: entryError } = await supabase
+      console.log('[CreateEntry] userId:', userId);
+
+      // Preflight: verify DB connectivity
+      const { error: preflight } = await supabase
+        .from('entries')
+        .select('entry_id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      if (preflight) {
+        console.error('[CreateEntry] Preflight failed:', preflight);
+        throw new Error('Unable to connect to database. Please try again.');
+      }
+      console.log('[CreateEntry] Preflight OK');
+
+      // 1. Create entry row (insert without chained .select())
+      console.log('[CreateEntry] Step 1: Inserting entry...');
+      const entryId = crypto.randomUUID();
+      const { error: entryError } = await supabase
         .from('entries')
         .insert({
+          entry_id: entryId,
           user_id: userId,
           entry_date: new Date().toISOString().slice(0, 10),
           section_type: SECTION_TYPE.PROFESSIONAL,
           status: ENTRY_STATUS.COMPLETE,
           ai_generated_summary: synthesis.synthesis_paragraph,
           ai_generated_summary_ai: synthesis.synthesis_paragraph,
-        })
-        .select()
-        .single();
+        });
 
-      if (entryError) throw entryError;
+      if (entryError) {
+        console.error('[CreateEntry] Entry insert failed:', entryError);
+        throw entryError;
+      }
+      console.log('[CreateEntry] Entry created:', entryId);
 
-      // 2. Create achievement row with synthesis + _ai columns (write-once)
-      const { data: achievement, error: achievementError } = await supabase
+      // 2. Create achievement row
+      console.log('[CreateEntry] Step 2: Inserting achievement...');
+      const achievementId = crypto.randomUUID();
+      const { error: achievementError } = await supabase
         .from('professional_achievements')
         .insert({
-          entry_id: entry.entry_id,
+          achievement_id: achievementId,
+          entry_id: entryId,
           user_id: userId,
           company_id: currentCompany?.company_id ?? null,
           company_name_snapshot: currentCompany?.name ?? null,
@@ -67,13 +89,16 @@ export function useCreateEntry() {
           star_result_ai: synthesis.star_result,
           completeness_score: synthesis.completeness_score,
           completeness_flags: synthesis.completeness_flags,
-        })
-        .select()
-        .single();
+        });
 
-      if (achievementError) throw achievementError;
+      if (achievementError) {
+        console.error('[CreateEntry] Achievement insert failed:', achievementError);
+        throw achievementError;
+      }
+      console.log('[CreateEntry] Achievement created:', achievementId);
 
       // 3. Create achievement_responses rows (save user's raw input)
+      console.log('[CreateEntry] Step 3: Inserting responses...');
       const responses = [
         { question_key: 'headline', question_text_snapshot: 'What did you accomplish?', response_text: mainInput },
         ...Object.entries(starInputs)
@@ -89,18 +114,22 @@ export function useCreateEntry() {
         .from('achievement_responses')
         .insert(
           responses.map((r) => ({
-            achievement_id: achievement.achievement_id,
+            achievement_id: achievementId,
             question_key: r.question_key,
             question_text_snapshot: r.question_text_snapshot,
             response_text: r.response_text,
           })),
         );
 
-      if (responsesError) throw responsesError;
+      if (responsesError) {
+        console.error('[CreateEntry] Responses insert failed:', responsesError);
+        throw responsesError;
+      }
+      console.log('[CreateEntry] Responses created');
 
-      // 4. Create achievement_tags rows
+      // 4. Create achievement_tags rows (non-critical)
+      console.log('[CreateEntry] Step 4: Looking up tags...');
       if (synthesis.tag_suggestions.length > 0) {
-        // Look up existing tags by slug
         const { data: existingTags } = await supabase
           .from('tags')
           .select('*')
@@ -110,25 +139,34 @@ export function useCreateEntry() {
         const tagIds = (existingTags ?? []).map((t: { tag_id: string }) => t.tag_id);
 
         if (tagIds.length > 0) {
-          await supabase.from('achievement_tags').insert(
+          const { error: tagsError } = await supabase.from('achievement_tags').insert(
             tagIds.map((tagId: string) => ({
-              achievement_id: achievement.achievement_id,
+              achievement_id: achievementId,
               tag_id: tagId,
               is_ai_suggested: true,
               is_confirmed: true,
             })),
           );
+          if (tagsError) {
+            console.error('[CreateEntry] Tags insert failed:', tagsError);
+          }
         }
       }
+      console.log('[CreateEntry] Done!');
 
-      return { entry, achievement };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['entries'] });
-      queryClient.invalidateQueries({ queryKey: ['achievements'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['highlights'] });
+      return { entryId, achievementId };
     },
   });
+}
+
+/** Invalidate all entry-related queries. Call after navigation completes. */
+export function useInvalidateEntryQueries() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ['entries'] });
+    queryClient.invalidateQueries({ queryKey: ['achievements'] });
+    queryClient.invalidateQueries({ queryKey: ['stats'] });
+    queryClient.invalidateQueries({ queryKey: ['projects'] });
+    queryClient.invalidateQueries({ queryKey: ['highlights'] });
+  };
 }

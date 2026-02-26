@@ -21,7 +21,10 @@ export default function SignIn() {
 
   const handleSignIn = async () => {
     if (!email.trim() || !password) return;
-    await signIn(email.trim(), password);
+    const result = await signIn(email.trim(), password);
+    if (result) {
+      router.replace('/(tabs)');
+    }
   };
 
   const isDisabled = !email.trim() || !password || loading;

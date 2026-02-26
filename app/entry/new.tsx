@@ -8,7 +8,7 @@ import { EntryStep } from '@/components/entry-flow/EntryStep';
 import { ProcessingStep } from '@/components/entry-flow/ProcessingStep';
 import { ReviewStep } from '@/components/entry-flow/ReviewStep';
 import { useSynthesis } from '@/hooks/useSynthesis';
-import { useCreateEntry } from '@/hooks/useCreateEntry';
+import { useCreateEntry, useInvalidateEntryQueries } from '@/hooks/useCreateEntry';
 import type { EntryFlowStep } from '@/types/app';
 import type { SynthesisResult } from '@/types/app';
 
@@ -17,6 +17,7 @@ export default function NewEntryScreen() {
   const insets = useSafeAreaInsets();
   const { synthesize } = useSynthesis();
   const createEntry = useCreateEntry();
+  const invalidateQueries = useInvalidateEntryQueries();
 
   const [step, setStep] = useState<EntryFlowStep>('input');
   const [mainInput, setMainInput] = useState('');
@@ -50,9 +51,10 @@ export default function NewEntryScreen() {
         synthesis: { ...synthesis, ai_generated_name: achievementName },
         projectId: selectedProjectId,
       });
-      router.back();
-    } catch {
-      // Error is handled by mutation state
+      router.replace('/(tabs)');
+      setTimeout(invalidateQueries, 300);
+    } catch (err) {
+      console.error('Save failed:', err);
     }
   };
 
@@ -65,6 +67,7 @@ export default function NewEntryScreen() {
         synthesis: { ...synthesis, ai_generated_name: achievementName },
         projectId: selectedProjectId,
       });
+      invalidateQueries();
       // Reset for new entry
       setMainInput('');
       setStarInputs({});
@@ -81,7 +84,7 @@ export default function NewEntryScreen() {
       {/* Close button */}
       {step !== 'processing' && (
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)')} hitSlop={12}>
             <FontAwesome name="times" size={20} color={colors.walnut} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>
