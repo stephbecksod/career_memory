@@ -83,7 +83,7 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>Entries</Text>
         </TouchableOpacity>
         <View style={styles.statDivider} />
-        <TouchableOpacity style={styles.stat} onPress={() => router.push('/(tabs)/entries')}>
+        <TouchableOpacity style={styles.stat} onPress={() => router.push('/(tabs)/entries?view=by_achievement')}>
           <Text style={styles.statNumber}>{stats?.achievements ?? 0}</Text>
           <Text style={styles.statLabel}>Achievements</Text>
         </TouchableOpacity>
@@ -164,7 +164,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.moss,
+    backgroundColor: '#EDE5D4',
+    borderWidth: 1.5,
+    borderColor: colors.blush,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 16,
-    color: colors.white,
+    color: colors.moss,
   },
   recentFocusCard: {
     marginBottom: 16,
@@ -195,12 +197,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: colors.moss,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 22,
+    elevation: 6,
   },
   ctaMicCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -210,13 +219,13 @@ const styles = StyleSheet.create({
   },
   ctaTitle: {
     fontFamily: 'Nunito_600SemiBold',
-    fontSize: 15,
+    fontSize: 14,
     color: colors.white,
     marginBottom: 2,
   },
   ctaSubtitle: {
     fontFamily: 'DMSans_400Regular',
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.7)',
   },
   sectionSpacing: {
@@ -238,8 +247,9 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontFamily: 'Nunito_700Bold',
-    fontSize: 28,
+    fontSize: 32,
     color: colors.walnut,
+    letterSpacing: -1,
   },
   statLabel: {
     fontFamily: 'DMSans_400Regular',
@@ -268,10 +278,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   highlightIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 7,
     backgroundColor: colors.amberFaint,
+    borderWidth: 1,
+    borderColor: colors.amberBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,

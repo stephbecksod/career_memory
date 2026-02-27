@@ -36,29 +36,73 @@ export function useCreateEntry() {
       }
       console.log('[CreateEntry] Preflight OK');
 
-      // 1. Create entry row (insert without chained .select())
-      console.log('[CreateEntry] Step 1: Inserting entry...');
-      const entryId = crypto.randomUUID();
-      const { error: entryError } = await supabase
-        .from('entries')
-        .insert({
-          entry_id: entryId,
-          user_id: userId,
-          entry_date: new Date().toISOString().slice(0, 10),
-          section_type: SECTION_TYPE.PROFESSIONAL,
-          status: ENTRY_STATUS.COMPLETE,
-          ai_generated_summary: synthesis.synthesis_paragraph,
-          ai_generated_summary_ai: synthesis.synthesis_paragraph,
-        });
+      // 1. Reuse existing entry for today, or create a new one
+      console.log('[CreateEntry] Step 1: Checking for existing entry today...');
+      const today = new Date().toISOString().slice(0, 10);
+      let entryId: string;
 
-      if (entryError) {
-        console.error('[CreateEntry] Entry insert failed:', entryError);
-        throw entryError;
+      const { data: existingEntries, error: lookupError } = await supabase
+        .from('entries')
+        .select('entry_id, ai_generated_summary')
+        .eq('user_id', userId)
+        .eq('entry_date', today)
+        .is('deleted_at', null)
+        .limit(1);
+
+      if (lookupError) {
+        console.error('[CreateEntry] Entry lookup failed:', lookupError);
+        throw lookupError;
       }
-      console.log('[CreateEntry] Entry created:', entryId);
+
+      const existingEntry = existingEntries && existingEntries.length > 0 ? existingEntries[0] : null;
+
+      if (existingEntry) {
+        entryId = existingEntry.entry_id;
+        console.log('[CreateEntry] Reusing existing entry:', entryId);
+        // Update summary only if it was previously null
+        if (!existingEntry.ai_generated_summary) {
+          const { error: updateError } = await supabase
+            .from('entries')
+            .update({
+              ai_generated_summary: synthesis.synthesis_paragraph,
+              ai_generated_summary_ai: synthesis.synthesis_paragraph,
+            })
+            .eq('entry_id', entryId);
+          if (updateError) {
+            console.error('[CreateEntry] Entry summary update failed:', updateError);
+          }
+        }
+      } else {
+        entryId = crypto.randomUUID();
+        const { error: entryError } = await supabase
+          .from('entries')
+          .insert({
+            entry_id: entryId,
+            user_id: userId,
+            entry_date: today,
+            section_type: SECTION_TYPE.PROFESSIONAL,
+            status: ENTRY_STATUS.COMPLETE,
+            ai_generated_summary: synthesis.synthesis_paragraph,
+            ai_generated_summary_ai: synthesis.synthesis_paragraph,
+          });
+
+        if (entryError) {
+          console.error('[CreateEntry] Entry insert failed:', entryError);
+          throw entryError;
+        }
+        console.log('[CreateEntry] Entry created:', entryId);
+      }
 
       // 2. Create achievement row
       console.log('[CreateEntry] Step 2: Inserting achievement...');
+      // Compute next display_order for this entry
+      const { count: existingCount } = await supabase
+        .from('professional_achievements')
+        .select('achievement_id', { count: 'exact', head: true })
+        .eq('entry_id', entryId)
+        .is('deleted_at', null);
+      const displayOrder = (existingCount ?? 0) + 1;
+
       const achievementId = crypto.randomUUID();
       const { error: achievementError } = await supabase
         .from('professional_achievements')
@@ -70,7 +114,7 @@ export function useCreateEntry() {
           company_name_snapshot: currentCompany?.name ?? null,
           role_title: profile?.default_role_title ?? null,
           project_id: projectId ?? null,
-          display_order: 1,
+          display_order: displayOrder,
           source_platform: SOURCE_PLATFORM.MANUAL,
           ai_generated_name: synthesis.ai_generated_name,
           ai_generated_name_ai: synthesis.ai_generated_name,

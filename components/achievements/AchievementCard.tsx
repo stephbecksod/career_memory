@@ -8,9 +8,10 @@ import type { ProfessionalAchievement } from '@/types/database';
 
 interface AchievementCardProps {
   achievement: ProfessionalAchievement;
+  projectName?: string | null;
 }
 
-export function AchievementCard({ achievement }: AchievementCardProps) {
+export function AchievementCard({ achievement, projectName }: AchievementCardProps) {
   const router = useRouter();
   const isHighlight = achievement.is_highlight;
 
@@ -28,11 +29,12 @@ export function AchievementCard({ achievement }: AchievementCardProps) {
       onPress={() => router.push(`/achievement/${achievement.achievement_id}`)}
     >
       <Card
-        accentPosition="left"
-        accentColor={isHighlight ? colors.amber : colors.moss}
+        accentPosition={isHighlight ? 'left' : 'none'}
+        accentColor={colors.amber}
+        accentOpacity={0.65}
         style={styles.card}
       >
-        <View style={styles.content}>
+        <View style={[styles.content, isHighlight && styles.contentWithAccent]}>
           <View style={styles.topRow}>
             <Text style={styles.date}>{dateStr}</Text>
             {isHighlight && (
@@ -46,9 +48,14 @@ export function AchievementCard({ achievement }: AchievementCardProps) {
             </Text>
           )}
           <View style={styles.bottomRow}>
-            {achievement.project_id && achievement.company_name_snapshot && (
-              <Text style={styles.projectLabel}>{achievement.company_name_snapshot}</Text>
-            )}
+            <View style={styles.bottomLeft}>
+              {projectName && (
+                <View style={styles.projectPill}>
+                  <FontAwesome name="folder-o" size={10} color={colors.moss} />
+                  <Text style={styles.projectText}>{projectName}</Text>
+                </View>
+              )}
+            </View>
             <FontAwesome name="chevron-right" size={12} color={colors.umber} />
           </View>
         </View>
@@ -63,6 +70,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 14,
+  },
+  contentWithAccent: {
     paddingLeft: 14 + layout.accentBar.width,
   },
   topRow: {
@@ -78,15 +87,16 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Nunito_600SemiBold',
-    fontSize: 15,
+    fontSize: 13.5,
     color: colors.walnut,
     marginBottom: 4,
   },
   excerpt: {
     fontFamily: 'DMSans_400Regular',
-    fontSize: 13,
+    fontSize: 12,
     color: colors.walnut,
-    lineHeight: 19,
+    opacity: 0.7,
+    lineHeight: 17,
     marginBottom: 8,
   },
   bottomRow: {
@@ -94,9 +104,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  projectLabel: {
-    fontFamily: 'DMSans_400Regular',
+  bottomLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  projectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.mossFaint,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  projectText: {
+    fontFamily: 'DMSans_500Medium',
     fontSize: 11,
-    color: colors.umber,
+    color: colors.moss,
   },
 });

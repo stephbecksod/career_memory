@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { BackButton } from '@/components/ui/BackButton';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/userStore';
 import { useAchievements } from '@/hooks/useAchievements';
@@ -73,10 +74,7 @@ export default function ProjectDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)/projects')} hitSlop={12}>
-          <FontAwesome name="arrow-left" size={18} color={colors.walnut} />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>Project</Text>
+        <BackButton label="Projects" onPress={() => router.replace('/(tabs)/projects')} />
         <TouchableOpacity
           onPress={() => toggleHighlight.mutate()}
           style={[
@@ -137,11 +135,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-  },
-  topTitle: {
-    fontFamily: 'Nunito_600SemiBold',
-    fontSize: 16,
-    color: colors.walnut,
   },
   highlightBtn: {
     width: 36,

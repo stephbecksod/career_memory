@@ -10,6 +10,34 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-02-26] — Same-date entry grouping and design review fixes
+
+**Area:** Data, UI, Navigation
+**Type:** Bug Fix
+
+### What
+Fixed several issues identified during design review:
+1. **Same-date entry grouping** — `useCreateEntry` now queries for an existing entry on today's date before creating a new one. If found, the new achievement is added under the existing entry with incremented `display_order`.
+2. **Back button component** — Created `BackButton` (chevron-left in 32x32 rounded container + breadcrumb text) and `CloseButton` (times icon). Applied to all detail pages replacing the plain arrow-left icon.
+3. **Achievement card** — Accent bar only shows on highlights (amber, opacity 0.65). Non-highlighted cards have no accent. Added project pill with folder icon.
+4. **Entry card** — Date now uses `Nunito_700Bold` at 16px. Company moved to right with building icon. Count pill has bars icon.
+5. **Achievement detail** — Added edit mode (isEditing state, TextInputs for name/summary/STAR), highlight pill toggle, and collapsible "Your Notes" accordion.
+6. **Card accentOpacity** — Card component now accepts `accentOpacity` prop.
+7. **Page headers** — Entries/Projects titles 24px (was 28), "Add new"/"New project" buttons are moss bg with white text.
+8. **Toggle styling** — Active state is now moss bg with white text (was mossFaint bg with moss text).
+9. **Home tweaks** — Avatar bg `#EDE5D4` with blush border and moss text. CTA mic 34x34 with shadow. Stats 32px with letterSpacing -1. Highlight icons 28x28 with amberBorder.
+
+### Why
+Multiple visual discrepancies vs the prototype (`career-memory-app.jsx`). The duplicate entry bug was a functional issue — logging two achievements on the same day created two separate entries instead of grouping them.
+
+### Impact
+Entry grouping changes the data model behavior. Consumers of entry lists will now see fewer entries with more achievements per entry. Achievement detail now has edit capability — writes only to live columns, never to `_ai` columns.
+
+### Watch Out For
+The entry summary is only updated on grouping if it was previously null. If the first achievement already set a summary, adding a second achievement won't update it — this may need a re-synthesis step in the future.
+
+---
+
 ## [2026-02-26] — Supabase client SSR fix for Expo web
 
 **Area:** Supabase, Web

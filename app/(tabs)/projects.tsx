@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
 import { useProjects } from '@/hooks/useProjects';
@@ -36,6 +37,7 @@ export default function ProjectsScreen() {
           style={styles.newButton}
           onPress={() => setShowNewProject(true)}
         >
+          <FontAwesome name="plus" size={11} color={colors.white} style={{ marginRight: 5 }} />
           <Text style={styles.newButtonText}>New project</Text>
         </TouchableOpacity>
       </View>
@@ -106,19 +108,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Nunito_700Bold',
-    fontSize: 28,
+    fontSize: 24,
     color: colors.walnut,
   },
   newButton: {
-    backgroundColor: colors.mossFaint,
-    borderRadius: layout.borderRadius.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.moss,
+    borderRadius: 11,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    ...layout.shadow.sm,
   },
   newButtonText: {
     fontFamily: 'Nunito_600SemiBold',
     fontSize: 14,
-    color: colors.moss,
+    color: colors.white,
   },
   filters: {
     flexDirection: 'row',

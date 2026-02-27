@@ -7,6 +7,7 @@ interface CardProps {
   style?: StyleProp<ViewStyle>;
   accentPosition?: 'left' | 'top' | 'none';
   accentColor?: string;
+  accentOpacity?: number;
 }
 
 export function Card({
@@ -14,14 +15,15 @@ export function Card({
   style,
   accentPosition = 'none',
   accentColor = colors.moss,
+  accentOpacity = 1,
 }: CardProps) {
   return (
     <View style={[styles.card, style]}>
       {accentPosition === 'left' && (
-        <View style={[styles.leftAccent, { backgroundColor: accentColor }]} />
+        <View style={[styles.leftAccent, { backgroundColor: accentColor, opacity: accentOpacity }]} />
       )}
       {accentPosition === 'top' && (
-        <View style={[styles.topAccent, { backgroundColor: accentColor }]} />
+        <View style={[styles.topAccent, { backgroundColor: accentColor, opacity: accentOpacity }]} />
       )}
       {children}
     </View>

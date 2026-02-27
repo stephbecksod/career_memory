@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { colors } from '@/constants/colors';
+import { CloseButton } from '@/components/ui/BackButton';
 import { EntryStep } from '@/components/entry-flow/EntryStep';
 import { ProcessingStep } from '@/components/entry-flow/ProcessingStep';
 import { ReviewStep } from '@/components/entry-flow/ReviewStep';
@@ -84,13 +84,11 @@ export default function NewEntryScreen() {
       {/* Close button */}
       {step !== 'processing' && (
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.replace('/(tabs)')} hitSlop={12}>
-            <FontAwesome name="times" size={20} color={colors.walnut} />
-          </TouchableOpacity>
+          <CloseButton onPress={() => router.replace('/(tabs)')} />
           <Text style={styles.topTitle}>
             {step === 'input' ? 'New Entry' : 'Review'}
           </Text>
-          <View style={{ width: 20 }} />
+          <View style={{ width: 32 }} />
         </View>
       )}
 

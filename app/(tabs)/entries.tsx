@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
 import { useEntries } from '@/hooks/useEntries';
 import { useAchievements } from '@/hooks/useAchievements';
+import { useProjects } from '@/hooks/useProjects';
 import { EntryCard } from '@/components/entries/EntryCard';
 import { AchievementCard } from '@/components/achievements/AchievementCard';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -13,11 +15,29 @@ import type { EntriesViewMode } from '@/types/app';
 
 export default function EntriesScreen() {
   const router = useRouter();
+  const { view } = useLocalSearchParams<{ view?: string }>();
   const [viewMode, setViewMode] = useState<EntriesViewMode>('by_entry');
+
+  // Respond to navigation param (e.g. from Home stats tap)
+  useEffect(() => {
+    if (view === 'by_achievement') {
+      setViewMode('by_achievement');
+    }
+  }, [view]);
   const { data: entries, isLoading: entriesLoading } = useEntries();
   const { data: achievements, isLoading: achievementsLoading } = useAchievements();
+  const { data: projects } = useProjects();
 
   const isLoading = entriesLoading || achievementsLoading;
+
+  // Build project name lookup
+  const projectNameMap = (projects ?? []).reduce<Record<string, string>>(
+    (acc, p) => {
+      acc[p.project_id] = p.name;
+      return acc;
+    },
+    {},
+  );
 
   // Count achievements per entry
   const achievementCountByEntry = (achievements ?? []).reduce<Record<string, number>>(
@@ -37,6 +57,7 @@ export default function EntriesScreen() {
           style={styles.addButton}
           onPress={() => router.push('/entry/new')}
         >
+          <FontAwesome name="plus" size={11} color={colors.white} style={{ marginRight: 5 }} />
           <Text style={styles.addButtonText}>Add new</Text>
         </TouchableOpacity>
       </View>
@@ -97,7 +118,12 @@ export default function EntriesScreen() {
         <FlatList
           data={achievements ?? []}
           keyExtractor={(item) => item.achievement_id}
-          renderItem={({ item }) => <AchievementCard achievement={item} />}
+          renderItem={({ item }) => (
+            <AchievementCard
+              achievement={item}
+              projectName={item.project_id ? projectNameMap[item.project_id] : null}
+            />
+          )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <EmptyState
@@ -127,25 +153,28 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Nunito_700Bold',
-    fontSize: 28,
+    fontSize: 24,
     color: colors.walnut,
   },
   addButton: {
-    backgroundColor: colors.mossFaint,
-    borderRadius: layout.borderRadius.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.moss,
+    borderRadius: 9,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    ...layout.shadow.sm,
   },
   addButtonText: {
     fontFamily: 'Nunito_600SemiBold',
     fontSize: 14,
-    color: colors.moss,
+    color: colors.white,
   },
   toggle: {
     flexDirection: 'row',
     marginHorizontal: 20,
     backgroundColor: colors.card,
-    borderRadius: layout.borderRadius.sm,
+    borderRadius: 11,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: 3,
@@ -155,10 +184,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   toggleActive: {
-    backgroundColor: colors.mossFaint,
+    backgroundColor: colors.moss,
   },
   toggleText: {
     fontFamily: 'DMSans_500Medium',
@@ -166,7 +195,7 @@ const styles = StyleSheet.create({
     color: colors.umber,
   },
   toggleTextActive: {
-    color: colors.moss,
+    color: colors.white,
   },
   listContent: {
     paddingHorizontal: 20,

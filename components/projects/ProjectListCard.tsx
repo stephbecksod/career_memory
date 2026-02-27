@@ -23,6 +23,7 @@ export function ProjectListCard({ project }: ProjectListCardProps) {
       <Card
         accentPosition="top"
         accentColor={isHighlight ? colors.amber : colors.moss}
+        accentOpacity={isHighlight ? 0.7 : 0.3}
         style={styles.card}
       >
         <View style={styles.content}>

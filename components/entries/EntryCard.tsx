@@ -26,11 +26,16 @@ export function EntryCard({ entry, achievementCount, companyName }: EntryCardPro
       activeOpacity={0.8}
       onPress={() => router.push(`/entry/${entry.entry_id}`)}
     >
-      <Card accentPosition="left" accentColor={colors.moss} style={styles.card}>
+      <Card accentPosition="left" accentColor={colors.moss} accentOpacity={0.35} style={styles.card}>
         <View style={styles.content}>
           <View style={styles.topRow}>
             <Text style={styles.date}>{dateStr}</Text>
-            {companyName && <Text style={styles.company}>{companyName}</Text>}
+            {companyName && (
+              <View style={styles.companyRow}>
+                <FontAwesome name="building-o" size={11} color={colors.umber} />
+                <Text style={styles.company}>{companyName}</Text>
+              </View>
+            )}
           </View>
           {entry.ai_generated_summary && (
             <Text style={styles.summary} numberOfLines={2}>
@@ -39,6 +44,7 @@ export function EntryCard({ entry, achievementCount, companyName }: EntryCardPro
           )}
           <View style={styles.bottomRow}>
             <View style={styles.countPill}>
+              <FontAwesome name="bars" size={10} color={colors.moss} />
               <Text style={styles.countText}>
                 {achievementCount} achievement{achievementCount !== 1 ? 's' : ''}
               </Text>
@@ -62,13 +68,18 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: 6,
   },
   date: {
-    fontFamily: 'DMSans_500Medium',
-    fontSize: 13,
+    fontFamily: 'Nunito_700Bold',
+    fontSize: 16,
     color: colors.walnut,
+  },
+  companyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   company: {
     fontFamily: 'DMSans_400Regular',
@@ -88,6 +99,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: colors.mossFaint,
     borderRadius: 12,
     paddingHorizontal: 8,

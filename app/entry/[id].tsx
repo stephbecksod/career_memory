@@ -1,12 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
+import { BackButton } from '@/components/ui/BackButton';
 import { AISummaryCard } from '@/components/ui/AISummaryCard';
 import { AchievementCard } from '@/components/achievements/AchievementCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
@@ -66,11 +66,7 @@ export default function EntryDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.replace('/(tabs)/entries')} hitSlop={12}>
-          <FontAwesome name="arrow-left" size={18} color={colors.walnut} />
-        </TouchableOpacity>
-        <Text style={styles.topTitle}>Entry</Text>
-        <View style={{ width: 18 }} />
+        <BackButton label="Entries" onPress={() => router.replace('/(tabs)/entries')} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -97,16 +93,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-  },
-  topTitle: {
-    fontFamily: 'Nunito_600SemiBold',
-    fontSize: 16,
-    color: colors.walnut,
   },
   content: {
     paddingHorizontal: 20,
