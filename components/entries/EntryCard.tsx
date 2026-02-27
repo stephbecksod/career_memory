@@ -4,6 +4,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
 import { Card } from '@/components/ui/Card';
+import { parseLocalDate } from '@/lib/dates';
 import type { Entry } from '@/types/database';
 
 interface EntryCardProps {
@@ -15,7 +16,7 @@ interface EntryCardProps {
 export function EntryCard({ entry, achievementCount, companyName }: EntryCardProps) {
   const router = useRouter();
 
-  const dateStr = new Date(entry.entry_date).toLocaleDateString('en-US', {
+  const dateStr = parseLocalDate(entry.entry_date).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

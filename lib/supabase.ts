@@ -30,3 +30,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+/**
+ * Ensure the Supabase auth session is active before running data queries.
+ * Supabase PostgREST queries can hang indefinitely when the auth token
+ * isn't properly set (e.g. orphaned lock from React Strict Mode).
+ * Call this before any write flow to fail fast instead of hanging.
+ */
+export async function ensureAuthSession(): Promise<string> {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw new Error(`Auth session error: ${error.message}`);
+  if (!session?.user?.id) throw new Error('No active session — please sign in again');
+  return session.user.id;
+}
+
+/**
+ * Wrap a Supabase query promise with a timeout to prevent infinite hangs.
+ * Returns the query result or throws after the timeout.
+ */
+export function withTimeout<T>(promise: PromiseLike<T>, ms = 15000, label = 'Query'): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
+    ),
+  ]) as Promise<T>;
+}

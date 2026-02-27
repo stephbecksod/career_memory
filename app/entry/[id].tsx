@@ -10,6 +10,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { AISummaryCard } from '@/components/ui/AISummaryCard';
 import { AchievementCard } from '@/components/achievements/AchievementCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { parseLocalDate } from '@/lib/dates';
 import type { Entry, ProfessionalAchievement } from '@/types/database';
 
 export default function EntryDetailScreen() {
@@ -56,7 +57,7 @@ export default function EntryDetailScreen() {
 
   if (!entry) return null;
 
-  const dateStr = new Date(entry.entry_date).toLocaleDateString('en-US', {
+  const dateStr = parseLocalDate(entry.entry_date).toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

@@ -4,9 +4,11 @@ import { layout } from '@/constants/layout';
 
 interface AISummaryCardProps {
   text: string;
+  showLabel?: boolean;
+  label?: string;
 }
 
-export function AISummaryCard({ text }: AISummaryCardProps) {
+export function AISummaryCard({ text, showLabel = true, label = 'AI SUMMARY' }: AISummaryCardProps) {
   return (
     <LinearGradient
       colors={['#4A6642', '#5C7A52']}
@@ -14,7 +16,7 @@ export function AISummaryCard({ text }: AISummaryCardProps) {
       end={{ x: 1, y: 0.5 }}
       style={styles.gradient}
     >
-      <Text style={styles.label}>AI SUMMARY</Text>
+      {showLabel && <Text style={styles.label}>{label}</Text>}
       <Text style={styles.text}>{text}</Text>
     </LinearGradient>
   );

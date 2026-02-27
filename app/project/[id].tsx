@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BackButton } from '@/components/ui/BackButton';
+import { parseLocalDate } from '@/lib/dates';
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/userStore';
 import { useAchievements } from '@/hooks/useAchievements';
@@ -62,10 +63,10 @@ export default function ProjectDetailScreen() {
 
   const dateRange = [
     project.start_date
-      ? new Date(project.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      ? parseLocalDate(project.start_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       : null,
     project.end_date
-      ? new Date(project.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      ? parseLocalDate(project.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
       : 'Present',
   ]
     .filter(Boolean)

@@ -44,11 +44,13 @@ export default function RootLayout() {
   }, [initialize]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-      if (session?.user) {
+      // Only fetch profile on sign-in or initial session — not on TOKEN_REFRESHED
+      // Token refresh events trigger frequently and cause redundant (often hanging) queries
+      if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
         await fetchProfile(session.user.id);
-      } else {
+      } else if (!session) {
         clear();
       }
     });

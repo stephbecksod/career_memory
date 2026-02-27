@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, withTimeout } from '@/lib/supabase';
 import type {
   SynthesisResult,
   AchievementSynthesisInput,
@@ -8,9 +8,15 @@ import type {
 } from '@/types/app';
 
 async function invokeSynthesize<T>(type: string, payload: unknown): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('synthesize', {
-    body: { type, payload },
-  });
+  console.log(`[synthesis] Invoking Edge Function (${type})...`);
+
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke('synthesize', {
+      body: { type, payload },
+    }),
+    30000,
+    `Synthesis (${type})`,
+  );
 
   if (error) {
     console.error(`[synthesis] Edge Function error (${type}):`, error);
@@ -22,6 +28,7 @@ async function invokeSynthesize<T>(type: string, payload: unknown): Promise<T> {
     throw new Error(data.error);
   }
 
+  console.log(`[synthesis] Edge Function returned (${type}):`, data);
   return data as T;
 }
 

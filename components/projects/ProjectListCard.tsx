@@ -35,11 +35,15 @@ export function ProjectListCard({ project }: ProjectListCardProps) {
             />
             <Text style={styles.name} numberOfLines={1}>{project.name}</Text>
           </View>
-          {project.description && (
+          {project.highlight_summary ? (
+            <Text style={styles.summary} numberOfLines={3}>
+              {project.highlight_summary}
+            </Text>
+          ) : project.description ? (
             <Text style={styles.description} numberOfLines={2}>
               {project.description}
             </Text>
-          )}
+          ) : null}
           <View style={styles.bottomRow}>
             <StatusBadge status={project.status} />
             <Text style={styles.count}>
@@ -71,6 +75,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.walnut,
     flex: 1,
+  },
+  summary: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 12.5,
+    color: colors.walnut,
+    lineHeight: 18,
+    marginBottom: 10,
+    opacity: 0.8,
   },
   description: {
     fontFamily: 'DMSans_400Regular',

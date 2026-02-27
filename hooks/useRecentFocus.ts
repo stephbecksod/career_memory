@@ -37,6 +37,14 @@ export function useRecentFocus() {
         .in('entry_id', entryIds)
         .is('deleted_at', null);
 
+      // Skip if none of the entries have real synthesized content yet
+      const hasAnySynthesis = (achievements ?? []).some((a) => a.ai_generated_name);
+      const hasAnySummary = entries.some((e) => e.ai_generated_summary);
+      if (!hasAnySynthesis && !hasAnySummary) {
+        console.log('[RecentFocus] No synthesized content yet — skipping API call');
+        return null;
+      }
+
       const achievementsByEntry = new Map<string, string[]>();
       for (const a of achievements ?? []) {
         const names = achievementsByEntry.get(a.entry_id) ?? [];
@@ -53,7 +61,12 @@ export function useRecentFocus() {
         })),
       };
 
-      return synthesizeRecentFocus(input);
+      try {
+        return await synthesizeRecentFocus(input);
+      } catch (err) {
+        console.warn('[RecentFocus] Summary generation failed — showing cold state:', err);
+        return null;
+      }
     },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000, // 5 minutes

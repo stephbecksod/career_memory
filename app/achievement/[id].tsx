@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { synthesizeProjectSummary } from '@/lib/synthesis';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
@@ -135,10 +136,19 @@ export default function AchievementDetailScreen() {
         .update({ project_id: projectId })
         .eq('achievement_id', achievement.achievement_id);
       if (error) throw error;
+
+      // Trigger project summary generation for the new project (non-blocking)
+      if (projectId && userId) {
+        triggerProjectSummary(projectId, userId).catch((err) => {
+          console.warn('[AchievementDetail] Project summary generation failed:', err);
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['achievement', id] });
+      queryClient.invalidateQueries({ queryKey: ['achievements'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
     },
   });
 
@@ -339,6 +349,62 @@ export default function AchievementDetailScreen() {
       </ScrollView>
     </View>
   );
+}
+
+/** Generate project summary when an achievement is assigned to a project */
+async function triggerProjectSummary(projectId: string, userId: string) {
+  // Check if user has manually edited the summary
+  const { data: projectData } = await supabase
+    .from('projects')
+    .select('name, description, highlight_summary_last_edited_at, highlight_summary_ai')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .limit(1);
+
+  const project = projectData && projectData.length > 0 ? projectData[0] : null;
+  if (!project) return;
+
+  // If user has manually edited, don't auto-overwrite
+  if (project.highlight_summary_last_edited_at) {
+    console.log('[AchievementDetail] Project summary manually edited — skipping auto-update');
+    return;
+  }
+
+  // Fetch all achievements for this project
+  const { data: achievements } = await supabase
+    .from('professional_achievements')
+    .select('ai_generated_name, synthesis_paragraph, created_at')
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  if (!achievements || achievements.length === 0) return;
+
+  const summary = await synthesizeProjectSummary({
+    project_name: project.name,
+    project_description: project.description,
+    achievements: achievements.map((a) => ({
+      name: a.ai_generated_name || 'Untitled achievement',
+      paragraph: a.synthesis_paragraph || '',
+      date: new Date(a.created_at).toISOString().slice(0, 10),
+    })),
+  });
+
+  const projectUpdate: Record<string, unknown> = {
+    highlight_summary: summary,
+  };
+  if (!project.highlight_summary_ai) {
+    projectUpdate.highlight_summary_ai = summary;
+  }
+
+  await supabase
+    .from('projects')
+    .update(projectUpdate)
+    .eq('project_id', projectId);
+
+  console.log('[AchievementDetail] Project summary generated and saved');
 }
 
 const styles = StyleSheet.create({

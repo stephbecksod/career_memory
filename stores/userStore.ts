@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
+import { supabase, withTimeout } from '@/lib/supabase';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import type { User } from '@/types/database';
 
@@ -30,27 +30,47 @@ export const useUserStore = create<UserState>((set, get) => ({
   },
 
   fetchProfile: async (userId) => {
-    const { data } = await supabase
-      .from('users')
-      .select('*')
-      .eq('user_id', userId)
-      .is('deleted_at', null)
-      .single();
+    // Skip if we already have the profile for this user
+    const existing = get().profile;
+    if (existing && existing.user_id === userId) return;
 
-    if (data) {
-      set({ profile: data as User });
+    try {
+      const { data } = await withTimeout(
+        supabase
+          .from('users')
+          .select('*')
+          .eq('user_id', userId)
+          .is('deleted_at', null)
+          .limit(1),
+        8000,
+        'Profile fetch',
+      );
+
+      const profile = data && data.length > 0 ? data[0] : null;
+      if (profile) {
+        set({ profile: profile as User });
+      }
+    } catch (err) {
+      // Warn, not error — profile fetch is non-critical if already loaded
+      console.warn('[UserStore] fetchProfile failed (non-critical):', err);
     }
   },
 
   initialize: async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        8000,
+        'Auth getSession',
+      );
       const store = get();
       store.setSession(session);
 
       if (session?.user) {
         await store.fetchProfile(session.user.id);
       }
+    } catch (err) {
+      console.error('[UserStore] initialize failed:', err);
     } finally {
       set({ loading: false, initialized: true });
     }

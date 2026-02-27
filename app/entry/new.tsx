@@ -79,11 +79,13 @@ export default function NewEntryScreen() {
     } catch (err) {
       console.error('[NewEntry] Flow error:', err);
 
-      if (!entryId) {
-        // Save failed — go back to input so user can retry
+      if (!achievementId) {
+        // Save failed before achievement was created — go back to input so user can retry
         setStep('input');
       } else {
-        // Save succeeded, synthesis or synthesis-save failed — show error with retry
+        // Achievement saved, synthesis or synthesis-save failed — show error with retry
+        setSavedEntryId(entryId);
+        setSavedAchievementId(achievementId);
         setSynthesisError(true);
       }
     }
