@@ -24,13 +24,45 @@ export interface SynthesisResult {
   ai_generated_name: string;
   synthesis_paragraph: string;
   synthesis_bullets: string[];
-  star_situation: string;
-  star_task: string;
-  star_action: string;
-  star_result: string;
+  star_situation: string | null;
+  star_task: string | null;
+  star_action: string | null;
+  star_result: string | null;
   tag_suggestions: string[];
   completeness_score: number;
   completeness_flags: string[];
+}
+
+/** Input for achievement synthesis Edge Function */
+export interface AchievementSynthesisInput {
+  headline?: string;
+  situation?: string;
+  action?: string;
+  result?: string;
+  metrics?: string;
+  skills?: string;
+  freeform?: string;
+}
+
+/** Input for entry summary synthesis */
+export interface EntrySummaryInput {
+  achievements: Array<{ name: string; paragraph: string }>;
+}
+
+/** Input for project summary synthesis */
+export interface ProjectSummaryInput {
+  project_name: string;
+  project_description?: string | null;
+  achievements: Array<{ name: string; paragraph: string; date: string }>;
+}
+
+/** Input for recent focus synthesis */
+export interface RecentFocusInput {
+  entries: Array<{
+    entry_date: string;
+    entry_summary: string;
+    achievement_names: string[];
+  }>;
 }
 
 /** Highlight item for Home highlights reel */

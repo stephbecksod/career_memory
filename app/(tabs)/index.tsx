@@ -7,8 +7,10 @@ import { layout } from '@/constants/layout';
 import { useUserStore } from '@/stores/userStore';
 import { useStats } from '@/hooks/useStats';
 import { useHighlights } from '@/hooks/useHighlights';
+import { useRecentFocus } from '@/hooks/useRecentFocus';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Card } from '@/components/ui/Card';
+import { AISummaryCard } from '@/components/ui/AISummaryCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 
 function getGreetingTime() {
@@ -24,6 +26,7 @@ export default function HomeScreen() {
   const profile = useUserStore((s) => s.profile);
   const { data: stats } = useStats();
   const { data: highlights } = useHighlights();
+  const { data: recentFocus } = useRecentFocus();
 
   const firstName = profile?.first_name ?? 'there';
 
@@ -51,13 +54,19 @@ export default function HomeScreen() {
 
       {/* Recent Focus */}
       <SectionLabel>Recent focus</SectionLabel>
-      <Card accentPosition="left" accentColor={colors.moss} style={styles.recentFocusCard}>
-        <View style={styles.cardPadding}>
-          <Text style={styles.recentFocusText}>
-            Add a few more entries to get your overview.
-          </Text>
+      {recentFocus ? (
+        <View style={styles.recentFocusCard}>
+          <AISummaryCard text={recentFocus} />
         </View>
-      </Card>
+      ) : (
+        <Card accentPosition="left" accentColor={colors.moss} style={styles.recentFocusCard}>
+          <View style={styles.cardPadding}>
+            <Text style={styles.recentFocusText}>
+              Add a few more entries to get your overview.
+            </Text>
+          </View>
+        </Card>
+      )}
 
       {/* Add Entry CTA */}
       <TouchableOpacity

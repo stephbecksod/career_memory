@@ -10,6 +10,37 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-02-26] — AI synthesis pipeline: save-before-synthesize architecture
+
+**Area:** AI Synthesis, Architecture
+**Type:** Decision
+
+### What
+Replaced the mock synthesis pipeline with real Claude Haiku calls via a single Supabase Edge Function (`synthesize`). Restructured the entry creation flow to enforce save-before-synthesize: user input is persisted to the database before any AI call is made.
+
+Key changes:
+- **Edge Function** (`supabase/functions/synthesize/index.ts`): Single function handling 5 synthesis types via a `type` parameter — `achievement`, `achievement_name`, `entry_summary`, `project_summary`, `recent_focus`. Uses `claude-haiku-4-5-20251001`, temp 0, max 1000 tokens.
+- **Split hooks**: `useCreateEntry` (did everything in one mutation) replaced by `useSaveEntry` (saves raw input pre-synthesis) + `useSaveSynthesis` (saves synthesis results post-synthesis). This enforces the architectural invariant that user data is safe before AI calls.
+- **Entry flow rewrite**: `app/entry/new.tsx` now follows: save → synthesize → save results → review. On synthesis failure, shows error with Retry (re-runs synthesis only, data is safe) and Skip (navigates away).
+- **Secondary AI calls**: Entry summary (Call 3) and project summary (Call 4) fire non-blocking after achievement synthesis completes. Project summary respects `highlight_summary_last_edited_at` — no auto-overwrite of user edits.
+- **Recent Focus**: `useRecentFocus` hook fetches last 3 entries and calls the `recent_focus` synthesis type. 5-minute staleTime cache. Shows cold-state text if < 3 entries.
+
+### Why
+The mock pipeline returned hardcoded data after a 3s delay. Real synthesis requires server-side API keys (Anthropic) which must never be in the client bundle. A single Edge Function with type dispatch minimizes deployment complexity (one secret, one function). The save-before-synthesize split is the most important data integrity rule in the app — if synthesis fails, the user's words are preserved.
+
+### Impact
+- `useCreateEntry` is deleted — all imports must use `useSaveEntry` + `useSaveSynthesis`
+- `useInvalidateEntryQueries` moved to `useSaveSynthesis.ts`
+- Review step no longer needs a "save" operation — data is already persisted. "Save & done" just navigates away.
+- `SynthesisResult.star_*` fields are now `string | null` (matching API reality)
+
+### Watch Out For
+- The Edge Function requires `ANTHROPIC_API_KEY` set via `supabase secrets set`
+- Entry summary regeneration on "Add another" — the second achievement triggers a new entry summary that covers both achievements
+- `_ai` write-once enforcement is in `useSaveSynthesis` — it checks for existing values before writing
+
+---
+
 ## [2026-02-26] — Same-date entry grouping and design review fixes
 
 **Area:** Data, UI, Navigation
