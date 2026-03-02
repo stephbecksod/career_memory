@@ -1,6 +1,8 @@
-import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/colors';
 
 function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
@@ -8,6 +10,17 @@ function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']
 }
 
 export default function TabLayout() {
+  const router = useRouter();
+  const session = useUserStore((s) => s.session);
+  const profile = useUserStore((s) => s.profile);
+
+  useEffect(() => {
+    // Redirect to onboarding if user hasn't completed it
+    if (session && profile && profile.onboarding_complete === false) {
+      router.replace('/(auth)/onboarding');
+    }
+  }, [session, profile, router]);
+
   return (
     <Tabs
       screenOptions={{

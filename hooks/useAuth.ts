@@ -5,7 +5,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const signUp = useCallback(async (email: string, password: string, firstName: string) => {
+  const signUp = useCallback(async (email: string, password: string, firstName?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -18,7 +18,7 @@ export function useAuth() {
         password,
         options: {
           data: {
-            first_name: firstName,
+            first_name: firstName || '',
             timezone,
           },
         },

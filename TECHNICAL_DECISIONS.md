@@ -10,6 +10,33 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-03-02] — Phase 5: Settings overlay + Auth screen redesign
+
+**Area:** Settings, Auth, Navigation
+**Type:** Decision
+
+### What
+Built the complete Settings system: full-screen overlay accessible from Home avatar, with 6 sub-screens (Profile, Notifications, Notification Editor, Companies, Company Editor, Preferences, Tags). Redesigned sign-in and sign-up screens to match updated designs with app logo, password toggle, social buttons (UI-only V1), password strength meter, and divider.
+
+### Why
+Settings was the last major feature area. Auth screens needed visual parity with the onboarding flow. All settings screens use Expo Router's `app/settings/` directory with a Stack navigator and modal presentation for overlay feel. Created 5 new mutation hooks (useUpdateProfile, useCompanyMutations, useNotificationSchedules, usePreferences, useTagMutations) following the established React Query pattern.
+
+### Impact
+- `useAuth.signUp` now accepts optional `firstName` — onboarding collects it instead of sign-up
+- Company mutations enforce `is_current` toggle logic (only one current company per user)
+- Tag mutations enforce slug normalization (lowercase, spaces→underscores)
+- All reads use `.eq('user_id', userId).is('deleted_at', null)` pattern
+- All deletes are soft deletes (`deleted_at = now()`)
+- Uses `@react-native-community/slider` for audio retention preference
+- Uses `crypto.randomUUID()` for client-side UUID generation (consistent with rest of codebase)
+
+### Watch Out For
+- Preferences uses upsert logic (check for existing row, then update or insert) since Supabase doesn't have native upsert on non-PK columns
+- Notification schedule `biweekly` cadence maps to `custom` in DB since schema only has weekly/monthly/quarterly/custom
+- Profile timezone selection is a scrollable list, not a native dropdown, for cross-platform consistency
+
+---
+
 ## [2026-02-26] — AI synthesis pipeline: save-before-synthesize architecture
 
 **Area:** AI Synthesis, Architecture
