@@ -112,6 +112,14 @@ export async function cancelNotificationsForSchedule(
 
 // ---- Internal helpers ----
 
+function decodeDaysBitmask(mask: number): number[] {
+  const days: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    if (mask & (1 << i)) days.push(i);
+  }
+  return days;
+}
+
 async function scheduleNotificationsForSchedule(
   notifs: typeof import('expo-notifications'),
   schedule: NotificationSchedule,
@@ -125,7 +133,23 @@ async function scheduleNotificationsForSchedule(
     body: schedule.first_question_preview || 'Time to log your latest achievement!',
   };
 
-  if (schedule.cadence_type === 'weekly' && schedule.day_of_week != null) {
+  if (schedule.cadence_type === 'custom' && schedule.day_of_week != null) {
+    // Daily schedule — day_of_week is a bitmask encoding selected days
+    const days = decodeDaysBitmask(schedule.day_of_week);
+    // Schedule a weekly trigger for each selected day
+    for (const day of days) {
+      const expoWeekday = day + 1; // DB 0-6 → Expo 1-7
+      await notifs.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: notifs.SchedulableTriggerInputTypes.WEEKLY,
+          weekday: expoWeekday,
+          hour,
+          minute,
+        },
+      });
+    }
+  } else if (schedule.cadence_type === 'weekly' && schedule.day_of_week != null) {
     // Expo weekday: 1=Sunday, 7=Saturday. DB stores 0=Sunday, 6=Saturday.
     const expoWeekday = schedule.day_of_week + 1;
 
@@ -139,7 +163,7 @@ async function scheduleNotificationsForSchedule(
       },
     });
   } else {
-    // Monthly, quarterly, biweekly — no native repeating trigger.
+    // Monthly, quarterly — no native repeating trigger.
     // Compute next 3 occurrences and schedule as exact dates.
     const dates = computeNextOccurrences(schedule, 3);
 
@@ -188,18 +212,8 @@ function computeNextOccurrences(schedule: NotificationSchedule, count: number): 
       cursor = new Date(next);
       cursor.setMonth(cursor.getMonth() + 3);
     } else {
-      // Custom / biweekly — treat as biweekly
-      const dayOfWeek = schedule.day_of_week ?? 1; // Monday default
-      next = new Date(cursor);
-      next.setHours(hour, minute, 0, 0);
-      // Find next occurrence of dayOfWeek
-      const daysUntil = (dayOfWeek - next.getDay() + 7) % 7 || 7;
-      next.setDate(next.getDate() + daysUntil);
-      if (next <= now) {
-        next.setDate(next.getDate() + 14);
-      }
-      cursor = new Date(next);
-      cursor.setDate(cursor.getDate() + 14);
+      // Custom (daily) is handled via weekly triggers, shouldn't reach here
+      break;
     }
 
     if (next && next > now) {

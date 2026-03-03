@@ -38,10 +38,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
  * Call this before any write flow to fail fast instead of hanging.
  */
 export async function ensureAuthSession(): Promise<string> {
+  // Try getSession first (fast, uses cached token)
   const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) throw new Error(`Auth session error: ${error.message}`);
-  if (!session?.user?.id) throw new Error('No active session — please sign in again');
-  return session.user.id;
+  if (!error && session?.user?.id) return session.user.id;
+
+  // Fallback: refresh the session (handles stale cache on web)
+  const { data: { session: refreshed }, error: refreshErr } = await supabase.auth.refreshSession();
+  if (!refreshErr && refreshed?.user?.id) return refreshed.user.id;
+
+  throw new Error('No active session — please sign in again');
 }
 
 /**

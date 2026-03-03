@@ -22,10 +22,11 @@ export const PROJECT_STATUS = {
 } as const;
 
 export const CADENCE_TYPE = {
+  DAILY: 'daily',
   WEEKLY: 'weekly',
   MONTHLY: 'monthly',
   QUARTERLY: 'quarterly',
-  CUSTOM: 'custom',
+  CUSTOM: 'custom', // DB value for 'daily'
 } as const;
 
 export const PLAN_TYPE = {

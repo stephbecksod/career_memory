@@ -18,12 +18,25 @@ import { useNotificationSchedules } from '@/hooks/useNotificationSchedules';
 import { colors } from '@/constants/colors';
 
 const ALL_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const CADENCES = ['weekly', 'biweekly', 'monthly', 'quarterly'] as const;
+const CADENCES = ['daily', 'weekly', 'monthly', 'quarterly'] as const;
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
 const OCCURRENCES = ['1st', '2nd', '3rd', '4th'];
 const SPECIFIC_DATES = ['1st', '15th', 'Last'];
 const Q_MONTHS = ['1st month', '2nd month', '3rd month'];
+
+// Bitmask helpers for encoding multiple days in day_of_week column
+function encodeDaysBitmask(days: number[]): number {
+  return days.reduce((mask, day) => mask | (1 << day), 0);
+}
+function decodeDaysBitmask(mask: number): number[] {
+  const days: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    if (mask & (1 << i)) days.push(i);
+  }
+  return days;
+}
+const ALL_DAYS_INDICES = [0, 1, 2, 3, 4, 5, 6];
 
 const TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -54,8 +67,9 @@ export default function NotificationEditorScreen() {
   const existingSchedule = schedules?.find((s) => s.schedule_id === id);
 
   const [label, setLabel] = useState('');
-  const [cadence, setCadence] = useState<CadenceType>('weekly');
+  const [cadence, setCadence] = useState<CadenceType>('daily');
   const [weekDay, setWeekDay] = useState('Fri');
+  const [dailyDays, setDailyDays] = useState<number[]>(ALL_DAYS_INDICES); // all days by default
   const [monthMode, setMonthMode] = useState<'occurrence' | 'date'>('occurrence');
   const [occurrence, setOccurrence] = useState('1st');
   const [occDay, setOccDay] = useState('Mon');
@@ -65,15 +79,37 @@ export default function NotificationEditorScreen() {
   const [minute, setMinute] = useState('00');
   const [ampm, setAmpm] = useState('PM');
   const [tz, setTz] = useState('America/Los_Angeles');
-  const [preview, setPreview] = useState('What did you accomplish this week? 🎯');
+  const [preview, setPreview] = useState('What did you accomplish today? 🎯');
   const [customPreview, setCustomPreview] = useState(false);
   const [tzOpen, setTzOpen] = useState(false);
+
+  const toggleDailyDay = (dayIndex: number) => {
+    setDailyDays((prev) => {
+      if (prev.includes(dayIndex)) {
+        // Don't allow deselecting all days
+        if (prev.length <= 1) return prev;
+        return prev.filter((d) => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort();
+    });
+  };
 
   useEffect(() => {
     if (existingSchedule) {
       setLabel(existingSchedule.label || '');
-      setCadence(existingSchedule.cadence_type as CadenceType);
-      if (existingSchedule.day_of_week != null) {
+      // Map DB 'custom' back to UI 'daily'
+      if (existingSchedule.cadence_type === 'custom') {
+        setCadence('daily');
+        // Decode bitmask for daily days
+        if (existingSchedule.day_of_week != null && existingSchedule.day_of_week > 6) {
+          setDailyDays(decodeDaysBitmask(existingSchedule.day_of_week));
+        } else {
+          setDailyDays(ALL_DAYS_INDICES);
+        }
+      } else {
+        setCadence(existingSchedule.cadence_type as CadenceType);
+      }
+      if (existingSchedule.day_of_week != null && existingSchedule.cadence_type === 'weekly') {
         setWeekDay(ALL_DAYS[existingSchedule.day_of_week]);
       }
       if (existingSchedule.notification_time) {
@@ -109,8 +145,12 @@ export default function NotificationEditorScreen() {
   const scheduleSummary = useMemo(() => {
     const t = `${hour}:${minute} ${ampm}`;
     const tzLabel = TIMEZONES.find((z) => z.value === tz)?.label || tz;
+    if (cadence === 'daily') {
+      if (dailyDays.length === 7) return `Every day at ${t} · ${tzLabel}`;
+      const dayNames = dailyDays.map((d) => ALL_DAYS[d]).join(', ');
+      return `${dayNames} at ${t} · ${tzLabel}`;
+    }
     if (cadence === 'weekly') return `Every ${weekDay} at ${t} · ${tzLabel}`;
-    if (cadence === 'biweekly') return `Every other ${weekDay} at ${t} · ${tzLabel}`;
     if (cadence === 'monthly') {
       if (monthMode === 'occurrence') return `${occurrence} ${occDay} of each month at ${t} · ${tzLabel}`;
       return `${specificDate} of each month at ${t} · ${tzLabel}`;
@@ -120,14 +160,22 @@ export default function NotificationEditorScreen() {
       return `${specificDate} of the ${qMonth} of each quarter at ${t} · ${tzLabel}`;
     }
     return '';
-  }, [cadence, weekDay, monthMode, occurrence, occDay, specificDate, qMonth, hour, minute, ampm, tz]);
+  }, [cadence, weekDay, dailyDays, monthMode, occurrence, occDay, specificDate, qMonth, hour, minute, ampm, tz]);
 
   const handleSave = async () => {
-    const timeStr = `${hour}:${minute} ${ampm}`;
-    const dbCadence = cadence === 'biweekly' ? 'custom' : cadence;
-    const dayOfWeek = (cadence === 'weekly' || cadence === 'biweekly')
-      ? dayNameToIndex(weekDay)
-      : null;
+    // Convert 12h display time to 24h TIME format for Postgres
+    let h24 = parseInt(hour, 10);
+    if (ampm === 'AM' && h24 === 12) h24 = 0;
+    else if (ampm === 'PM' && h24 !== 12) h24 += 12;
+    const timeStr = `${String(h24).padStart(2, '0')}:${minute}`;
+
+    const dbCadence = cadence === 'daily' ? 'custom' : cadence;
+    let dayOfWeek: number | null = null;
+    if (cadence === 'daily') {
+      dayOfWeek = encodeDaysBitmask(dailyDays.length > 0 ? dailyDays : ALL_DAYS_INDICES);
+    } else if (cadence === 'weekly') {
+      dayOfWeek = dayNameToIndex(weekDay);
+    }
 
     const input = {
       label: label.trim() || undefined,
@@ -144,8 +192,9 @@ export default function NotificationEditorScreen() {
       } else {
         await createSchedule.mutateAsync(input);
       }
-      router.back();
-    } catch {
+      goBack();
+    } catch (err) {
+      console.error('[notification-editor] Save failed:', err);
       const msg = 'Failed to save schedule. Please try again.';
       if (Platform.OS === 'web') {
         window.alert(msg);
@@ -157,11 +206,19 @@ export default function NotificationEditorScreen() {
 
   const isSaving = createSchedule.isPending || updateSchedule.isPending;
 
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/settings/notifications');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+        <TouchableOpacity onPress={goBack} style={styles.closeBtn}>
           <FontAwesome name="times" size={16} color={colors.umber} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{editing ? 'Edit schedule' : 'New schedule'}</Text>
@@ -201,8 +258,28 @@ export default function NotificationEditorScreen() {
           ))}
         </View>
 
-        {/* Day of week (weekly/biweekly) */}
-        {(cadence === 'weekly' || cadence === 'biweekly') && (
+        {/* Day of week — multi-select for daily */}
+        {cadence === 'daily' && (
+          <>
+            <SectionLabel>Days of week</SectionLabel>
+            <View style={styles.dayRow}>
+              {ALL_DAYS.map((d, i) => (
+                <TouchableOpacity
+                  key={d}
+                  style={[styles.dayPill, dailyDays.includes(i) && styles.dayPillSelected]}
+                  onPress={() => toggleDailyDay(i)}
+                >
+                  <Text style={[styles.dayPillText, dailyDays.includes(i) && styles.dayPillTextSelected]}>
+                    {d}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* Day of week — single-select for weekly */}
+        {cadence === 'weekly' && (
           <>
             <SectionLabel>Day of week</SectionLabel>
             <View style={styles.dayRow}>

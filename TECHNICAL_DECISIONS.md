@@ -10,6 +10,36 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-03-03] — Replace biweekly with daily cadence, auth session resilience, onboarding layout
+
+**Area:** Notifications, Auth, Onboarding
+**Type:** Decision, Bug Fix
+
+### What
+1. **Notification cadence options changed** from weekly/biweekly/monthly/quarterly to **daily/weekly/monthly/quarterly**. Daily allows multi-select days of the week (e.g. Mon, Wed, Fri).
+2. **Daily cadence storage** — Uses `cadence_type = 'custom'` in DB (same slot biweekly used). Selected days encoded as a **bitmask** in `day_of_week` column: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64. All days = 127.
+3. **DB migration 019** — Relaxed `day_of_week` CHECK constraint from `0-6` to `0-127` to support bitmask values.
+4. **Time format fix** — Notification editor now saves time in 24h format (`17:00`) for Postgres TIME column instead of `5:00 PM`.
+5. **Auth session resilience** — `ensureAuthSession()` now falls back to `refreshSession()` when `getSession()` returns stale data on web.
+6. **Notification editor navigation** — Close button uses `router.canGoBack()` with fallback to `router.replace('/settings/notifications')`.
+7. **Onboarding welcome layout** — Restructured from flex-based centering to flex spacers for even distribution. Buttons constrained to 300px max width. Feature bullets centered under hero.
+
+### Why
+- Daily cadence is more useful than biweekly for building a habit of logging achievements.
+- Bitmask in `day_of_week` avoids needing a new column or migration beyond relaxing the CHECK constraint.
+- `getSession()` can return null on web when the in-memory cache is stale even though localStorage has a valid token — `refreshSession()` handles this.
+- The `5:00 PM` string was invalid for Postgres TIME type, causing insert failures.
+
+### Impact
+- Existing biweekly schedules in DB (cadence_type = 'custom') will be interpreted as daily with all days selected when edited (safe fallback).
+- Native notification scheduling for daily uses one WEEKLY trigger per selected day (Expo doesn't have a DAILY trigger type).
+
+### Watch Out For
+- `day_of_week` values > 6 always mean bitmask (daily cadence). Values 0-6 are single-day (weekly cadence). The code branches on `cadence_type` to interpret correctly.
+- Onboarding CADENCES constant still has biweekly — updated separately in this commit.
+
+---
+
 ## [2026-03-03] — Edge case fixes, audio cleanup, and Expo Notifications
 
 **Area:** Architecture, Notifications, Edge Functions

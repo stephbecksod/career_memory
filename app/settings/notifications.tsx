@@ -21,6 +21,14 @@ import type { NotificationSchedule } from '@/types/database';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+function decodeDaysBitmask(mask: number): number[] {
+  const days: number[] = [];
+  for (let i = 0; i < 7; i++) {
+    if (mask & (1 << i)) days.push(i);
+  }
+  return days;
+}
+
 function formatScheduleDescription(s: NotificationSchedule): string {
   const time = s.notification_time || '';
   const dayName = s.day_of_week != null ? DAYS[s.day_of_week] : '';
@@ -32,8 +40,17 @@ function formatScheduleDescription(s: NotificationSchedule): string {
       return `Monthly · ${time}`;
     case 'quarterly':
       return `Quarterly · ${time}`;
+    case 'custom': {
+      // Daily schedule — decode bitmask
+      if (s.day_of_week != null && s.day_of_week > 6) {
+        const days = decodeDaysBitmask(s.day_of_week);
+        if (days.length === 7) return `Every day · ${time}`;
+        return `${days.map((d) => DAYS[d]).join(', ')} · ${time}`;
+      }
+      return `Daily · ${time}`;
+    }
     default:
-      return `Custom · ${time}`;
+      return `${time}`;
   }
 }
 
@@ -105,7 +122,7 @@ export default function NotificationsScreen() {
                     <View style={styles.cardTop}>
                       <View style={styles.cardInfo}>
                         <Text style={styles.cardLabel}>
-                          {schedule.label || schedule.cadence_type}
+                          {schedule.label || (schedule.cadence_type === 'custom' ? 'Daily' : schedule.cadence_type)}
                         </Text>
                         <Text style={styles.cardDesc}>
                           {formatScheduleDescription(schedule)}
@@ -141,7 +158,7 @@ export default function NotificationsScreen() {
                   {confirmDeleteId === schedule.schedule_id && (
                     <View style={styles.confirmBox}>
                       <Text style={styles.confirmText}>
-                        Delete "{schedule.label || schedule.cadence_type}"? This can't be undone.
+                        Delete "{schedule.label || (schedule.cadence_type === 'custom' ? 'Daily' : schedule.cadence_type)}"? This can't be undone.
                       </Text>
                       <View style={styles.confirmButtons}>
                         <TouchableOpacity

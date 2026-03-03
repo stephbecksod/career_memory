@@ -203,6 +203,10 @@ export default function OnboardingScreen() {
         style={styles.welcomeContainer}
       >
         <SafeAreaView style={styles.welcomeInner} edges={['top', 'bottom']}>
+          {/* Top spacer */}
+          <View style={{ flex: 1 }} />
+
+          {/* Hero: icon + title + subtitle */}
           <View style={styles.welcomeContent}>
             <View style={styles.welcomeIcon}>
               <FontAwesome name="star" size={32} color="white" />
@@ -215,6 +219,10 @@ export default function OnboardingScreen() {
             </Text>
           </View>
 
+          {/* Middle spacer */}
+          <View style={{ flex: 0.6 }} />
+
+          {/* Feature bullets */}
           <View style={styles.welcomeFeatures}>
             {[
               { emoji: '\uD83C\uDFA4', text: 'Voice-first capture — done in 60 seconds' },
@@ -230,14 +238,16 @@ export default function OnboardingScreen() {
             ))}
           </View>
 
+          {/* Bottom spacer */}
+          <View style={{ flex: 0.6 }} />
+
+          {/* Buttons */}
           <View style={styles.welcomeButtons}>
             {session ? (
-              // Authenticated user — proceed to onboarding steps
               <TouchableOpacity style={styles.getStartedBtn} onPress={goNext}>
                 <Text style={styles.getStartedText}>Get started</Text>
               </TouchableOpacity>
             ) : (
-              // Unauthenticated user — auth gateway
               <>
                 <TouchableOpacity
                   style={styles.getStartedBtn}
@@ -656,9 +666,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   welcomeContent: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 32,
   },
   welcomeIcon: {
@@ -668,7 +676,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 22,
   },
   welcomeTitle: {
     fontFamily: 'Nunito_700Bold',
@@ -687,7 +695,7 @@ const styles = StyleSheet.create({
     lineHeight: 25,
   },
   welcomeFeatures: {
-    paddingHorizontal: 28,
+    alignSelf: 'center',
     marginBottom: 28,
   },
   featureRow: {
@@ -715,8 +723,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   welcomeButtons: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 300,
+    paddingBottom: 32,
   },
   getStartedBtn: {
     backgroundColor: 'white',
