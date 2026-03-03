@@ -41,11 +41,24 @@ export function ReviewStep({
   onAcceptSplits,
   splittingSaving,
 }: ReviewStepProps) {
+  // Defensive defaults for malformed/partial synthesis responses
+  const safeName = synthesis.ai_generated_name || 'Untitled Achievement';
+  const safeParagraph = synthesis.synthesis_paragraph || '';
+  const safeBullets = Array.isArray(synthesis.synthesis_bullets) ? synthesis.synthesis_bullets : [];
+  const safeTags = Array.isArray(synthesis.tag_suggestions) ? synthesis.tag_suggestions : [];
+  const safeScore = typeof synthesis.completeness_score === 'number' ? synthesis.completeness_score : 0;
+  const safeStar = {
+    situation: synthesis.star_situation ?? '',
+    task: synthesis.star_task ?? '',
+    action: synthesis.star_action ?? '',
+    result: synthesis.star_result ?? '',
+  };
+
   const [editingName, setEditingName] = useState(false);
-  const [name, setName] = useState(synthesis.ai_generated_name);
+  const [name, setName] = useState(safeName);
   const [editingSummary, setEditingSummary] = useState(false);
-  const [summary, setSummary] = useState(synthesis.synthesis_paragraph);
-  const [tags, setTags] = useState<string[]>(synthesis.tag_suggestions);
+  const [summary, setSummary] = useState(safeParagraph);
+  const [tags, setTags] = useState<string[]>(safeTags);
   const [splitDismissed, setSplitDismissed] = useState(false);
 
   const hasSplits = !splitDismissed
@@ -128,10 +141,10 @@ export function ReviewStep({
         </View>
 
         {/* Bullets */}
-        {synthesis.synthesis_bullets.length > 0 && (
+        {safeBullets.length > 0 && (
           <View style={styles.bulletsSection}>
             <Text style={styles.sectionLabel}>KEY POINTS</Text>
-            {synthesis.synthesis_bullets.map((bullet, i) => (
+            {safeBullets.map((bullet, i) => (
               <View key={i} style={styles.bulletRow}>
                 <Text style={styles.bulletDot}>•</Text>
                 <Text style={styles.bulletText}>{bullet}</Text>
@@ -143,10 +156,10 @@ export function ReviewStep({
         {/* STAR Breakdown */}
         <Text style={styles.sectionLabel}>STAR BREAKDOWN</Text>
         {[
-          { label: 'Situation', value: synthesis.star_situation },
-          { label: 'Task', value: synthesis.star_task },
-          { label: 'Action', value: synthesis.star_action },
-          { label: 'Result', value: synthesis.star_result },
+          { label: 'Situation', value: safeStar.situation },
+          { label: 'Task', value: safeStar.task },
+          { label: 'Action', value: safeStar.action },
+          { label: 'Result', value: safeStar.result },
         ].map((item) => (
           <Card key={item.label} style={styles.starCard}>
             <View style={styles.starContent}>
@@ -180,7 +193,7 @@ export function ReviewStep({
         <View style={styles.completenessRow}>
           <FontAwesome name="bar-chart" size={14} color={colors.umber} />
           <Text style={styles.completenessText}>
-            Completeness: {synthesis.completeness_score}%
+            Completeness: {safeScore}%
           </Text>
         </View>
       </ScrollView>

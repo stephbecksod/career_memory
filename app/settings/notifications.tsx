@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -14,6 +15,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 import { useNotificationSchedules } from '@/hooks/useNotificationSchedules';
+// Lazy-imported on native only to avoid expo-notifications crashing web bundle
 import { colors } from '@/constants/colors';
 import type { NotificationSchedule } from '@/types/database';
 
@@ -39,6 +41,16 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { data: schedules, isLoading, toggleSchedule, deleteSchedule } = useNotificationSchedules();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const isWeb = Platform.OS === 'web';
+
+  // Request notification permissions on mount (native only)
+  useEffect(() => {
+    if (!isWeb) {
+      import('@/lib/notifications').then(({ requestNotificationPermissions }) => {
+        requestNotificationPermissions();
+      });
+    }
+  }, [isWeb]);
 
   const handleToggle = (id: string, currentActive: boolean) => {
     toggleSchedule.mutate({ id, active: !currentActive });
@@ -158,6 +170,14 @@ export default function NotificationsScreen() {
               You can have multiple schedules running at once — e.g. a weekly check-in and a quarterly review.
             </Text>
           </View>
+
+          {isWeb && (
+            <View style={[styles.infoBox, { marginTop: 8 }]}>
+              <Text style={styles.infoText}>
+                Push notifications are available on mobile only. Your schedules are saved and will send notifications when you use the mobile app.
+              </Text>
+            </View>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>

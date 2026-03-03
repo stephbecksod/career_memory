@@ -10,6 +10,36 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-03-03] — Edge case fixes, audio cleanup, and Expo Notifications
+
+**Area:** Architecture, Notifications, Edge Functions
+**Type:** Decision
+
+### What
+1. **ErrorBoundary** — Class component wrapping root layout to catch render errors with recovery UI.
+2. **Entry detail hardening** — Replaced `.single()` with `.limit(1)` + array extraction (avoids Supabase hang per known gotcha). Added not-found EmptyState and hides "ACHIEVEMENTS" label when empty.
+3. **Synthesis validation** — Defensive defaults in ReviewStep for all synthesis fields to prevent crashes from malformed AI responses.
+4. **Home loading state** — Shows LoadingIndicator while stats/highlights are loading.
+5. **Await name updates** — Converted fire-and-forget `.then()` to `await` in handleSave/handleAddAnother so name updates complete before navigation.
+6. **Audio cleanup Edge Function** — `supabase/functions/cleanup-audio/index.ts` queries expired audio rows, deletes from Storage, nulls DB references. Processes 100 rows per run.
+7. **Expo Notifications** — `lib/notifications.ts` with lazy-loaded imports (web-safe). Weekly schedules use native `WeeklyTriggerInput`. Monthly/quarterly compute next 3 occurrences as date triggers. All functions guard `Platform.OS === 'web'`. Notification tap navigates to `/entry/new`. Schedules sync after every mutation in `useNotificationSchedules`.
+
+### Why
+These complete the remaining V1 items: edge case hardening, audio lifecycle management, and push notification scheduling. Lazy-loading expo-notifications prevents web bundle crashes. The `.single()` removal follows the established Supabase gotcha (documented in earlier decisions).
+
+### Impact
+- ErrorBoundary catches any unhandled render error across the entire app
+- Audio cleanup requires deployment: `supabase functions deploy cleanup-audio --no-verify-jwt`
+- Notifications require `expo-notifications` and `expo-device` (installed)
+- Cron scheduling for audio cleanup needs external setup (pg_cron or external scheduler)
+
+### Watch Out For
+- DB weekday is 0-6 (Sun=0), Expo weekday is 1-7 (Sun=1) — the +1 offset is in `scheduleNotificationsForSchedule`
+- Non-weekly schedules only pre-compute 3 future dates — re-sync happens on app foreground via mutation callbacks
+- Audio cleanup Edge Function uses service role client (bypasses RLS) — this is intentional for cron access
+
+---
+
 ## [2026-03-02] — Web sidebar layout
 
 **Area:** Navigation, Web

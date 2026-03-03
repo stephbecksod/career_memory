@@ -12,11 +12,12 @@ import {
   DMSans_400Regular,
   DMSans_500Medium,
 } from '@expo-google-fonts/dm-sans';
-import { Stack } from 'expo-router';
+import { Stack, router as expoRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUserStore } from '@/stores/userStore';
 import { supabase } from '@/lib/supabase';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,18 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, [setSession, fetchProfile, clear]);
 
+  // Set up notification handler on native only
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cleanup: (() => void) | undefined;
+    import('@/lib/notifications').then(({ setupNotificationHandler }) => {
+      setupNotificationHandler(() => {
+        expoRouter.push('/entry/new');
+      }).then((fn) => { cleanup = fn; });
+    });
+    return () => cleanup?.();
+  }, []);
+
   useEffect(() => {
     if (fontError) throw fontError;
   }, [fontError]);
@@ -86,16 +99,18 @@ export default function RootLayout() {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {Platform.OS === 'web' ? (
-        <View style={{ height: '100vh' as any, overflow: 'hidden' }}>
-          {rootContent}
-        </View>
-      ) : (
-        <View style={{ flex: 1 }}>
-          {rootContent}
-        </View>
-      )}
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        {Platform.OS === 'web' ? (
+          <View style={{ height: '100vh' as any, overflow: 'hidden' }}>
+            {rootContent}
+          </View>
+        ) : (
+          <View style={{ flex: 1 }}>
+            {rootContent}
+          </View>
+        )}
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

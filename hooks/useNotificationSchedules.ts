@@ -18,8 +18,15 @@ export function useNotificationSchedules() {
   const userId = useUserStore((s) => s.authUser?.id);
   const queryClient = useQueryClient();
 
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ['notification_schedules', userId] });
+  const invalidateAndSync = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['notification_schedules', userId] });
+    // Re-fetch and sync with native notifications after invalidation (lazy import to avoid web crash)
+    const cached = queryClient.getQueryData<NotificationSchedule[]>(['notification_schedules', userId]);
+    if (cached) {
+      import('@/lib/notifications')
+        .then(({ syncAllSchedules }) => syncAllSchedules(cached))
+        .catch((err) => console.error('[useNotificationSchedules] Sync failed:', err));
+    }
   };
 
   const query = useQuery<NotificationSchedule[]>({
@@ -56,7 +63,7 @@ export function useNotificationSchedules() {
 
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: invalidateAndSync,
   });
 
   const updateSchedule = useMutation({
@@ -79,7 +86,7 @@ export function useNotificationSchedules() {
 
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: invalidateAndSync,
   });
 
   const deleteSchedule = useMutation({
@@ -95,7 +102,7 @@ export function useNotificationSchedules() {
 
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: invalidateAndSync,
   });
 
   const toggleSchedule = useMutation({
@@ -110,7 +117,7 @@ export function useNotificationSchedules() {
 
       if (error) throw error;
     },
-    onSuccess: invalidate,
+    onSuccess: invalidateAndSync,
   });
 
   return { ...query, createSchedule, updateSchedule, deleteSchedule, toggleSchedule };

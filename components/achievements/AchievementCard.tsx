@@ -42,11 +42,11 @@ export function AchievementCard({ achievement, projectName }: AchievementCardPro
             )}
           </View>
           <Text style={styles.name} numberOfLines={1}>{name}</Text>
-          {achievement.synthesis_paragraph && (
+          {achievement.synthesis_paragraph ? (
             <Text style={styles.excerpt} numberOfLines={2}>
               {achievement.synthesis_paragraph}
             </Text>
-          )}
+          ) : null}
           <View style={styles.bottomRow}>
             <View style={styles.bottomLeft}>
               {projectName && (

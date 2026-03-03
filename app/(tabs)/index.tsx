@@ -11,6 +11,7 @@ import { useRecentFocus } from '@/hooks/useRecentFocus';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
 
 function getGreetingTime() {
   const hour = new Date().getHours();
@@ -23,9 +24,11 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const profile = useUserStore((s) => s.profile);
-  const { data: stats } = useStats();
-  const { data: highlights } = useHighlights();
+  const { data: stats, isLoading: statsLoading } = useStats();
+  const { data: highlights, isLoading: highlightsLoading } = useHighlights();
   const { data: recentFocus } = useRecentFocus();
+
+  const isLoading = statsLoading || highlightsLoading;
 
   const firstName = profile?.first_name ?? 'there';
 
@@ -50,6 +53,12 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {isLoading && (
+        <View style={{ paddingVertical: 32 }}>
+          <LoadingIndicator />
+        </View>
+      )}
 
       {/* Recent Focus */}
       <SectionLabel>Recent focus</SectionLabel>

@@ -201,16 +201,29 @@ export default function AchievementDetailScreen() {
             .eq('achievement_tag_id', existingLink[0].achievement_tag_id);
         }
       } else {
-        await supabase.from('achievement_tags').insert({
+        const { error: insertErr } = await supabase.from('achievement_tags').insert({
           achievement_id: achievement.achievement_id,
           tag_id: tagId,
-          source: 'user',
           is_confirmed: true,
         });
+        if (insertErr) throw insertErr;
       }
     },
     onSuccess: () => {
       setNewTagName('');
+      queryClient.invalidateQueries({ queryKey: ['achievement-tags', id] });
+    },
+  });
+
+  const removeTag = useMutation({
+    mutationFn: async (achievementTagId: string) => {
+      const { error } = await supabase
+        .from('achievement_tags')
+        .update({ is_confirmed: false })
+        .eq('achievement_tag_id', achievementTagId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['achievement-tags', id] });
     },
   });
@@ -381,7 +394,12 @@ export default function AchievementDetailScreen() {
           <Text style={styles.sectionLabel}>TAGS</Text>
           <View style={styles.tagsRow}>
             {confirmedTags.map((at) => (
-              <Tag key={at.achievement_tag_id} label={at.tag?.name ?? 'Tag'} />
+              <Tag
+                key={at.achievement_tag_id}
+                label={at.tag?.name ?? 'Tag'}
+                variant={isEditing ? 'removable' : 'filled'}
+                onRemove={isEditing ? () => removeTag.mutate(at.achievement_tag_id) : undefined}
+              />
             ))}
           </View>
           {isEditing && (

@@ -140,18 +140,16 @@ export default function NewEntryScreen() {
    * Save & done — data is already saved, synthesis results already written.
    * Just navigate away and invalidate queries.
    */
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!synthesis) return;
 
     // If user edited the name in review, update just the name
     if (achievementName !== synthesis.ai_generated_name && savedAchievementId) {
-      supabase
+      const { error } = await supabase
         .from('professional_achievements')
         .update({ ai_generated_name: achievementName })
-        .eq('achievement_id', savedAchievementId)
-        .then(({ error }) => {
-          if (error) console.error('[NewEntry] Name update failed:', error);
-        });
+        .eq('achievement_id', savedAchievementId);
+      if (error) console.error('[NewEntry] Name update failed:', error);
     }
 
     invalidateQueries();
@@ -162,18 +160,16 @@ export default function NewEntryScreen() {
    * Add another — reset form for a new achievement under the same entry date.
    * Previous achievement is already fully saved.
    */
-  const handleAddAnother = () => {
+  const handleAddAnother = async () => {
     if (!synthesis) return;
 
     // Update name if edited
     if (achievementName !== synthesis.ai_generated_name && savedAchievementId) {
-      supabase
+      const { error } = await supabase
         .from('professional_achievements')
         .update({ ai_generated_name: achievementName })
-        .eq('achievement_id', savedAchievementId)
-        .then(({ error }) => {
-          if (error) console.error('[NewEntry] Name update failed:', error);
-        });
+        .eq('achievement_id', savedAchievementId);
+      if (error) console.error('[NewEntry] Name update failed:', error);
     }
 
     invalidateQueries();

@@ -40,7 +40,9 @@ const strengthLabels: Record<string, string> = {
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
   const { signUp, loading, error } = useAuth();
   const router = useRouter();
@@ -74,7 +76,9 @@ export default function SignUp() {
     );
   }
 
-  const isDisabled = !email.trim() || password.length < 8 || loading;
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+  const showMismatch = confirmPassword.length > 0 && !passwordsMatch;
+  const isDisabled = !email.trim() || password.length < 8 || !passwordsMatch || loading;
 
   return (
     <KeyboardAvoidingView
@@ -168,6 +172,34 @@ export default function SignUp() {
                 {strengthLabels[strength]}
               </Text>
             </View>
+          )}
+
+          {/* Confirm password field */}
+          <Text style={[styles.fieldLabel, { marginTop: 6 }]}>CONFIRM PASSWORD</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Re-enter your password"
+              placeholderTextColor={colors.umber}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              autoComplete="new-password"
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword((v) => !v)}
+              hitSlop={8}
+            >
+              <FontAwesome
+                name={showConfirmPassword ? 'eye-slash' : 'eye'}
+                size={16}
+                color={colors.umber}
+              />
+            </TouchableOpacity>
+          </View>
+          {showMismatch && (
+            <Text style={styles.mismatchText}>Passwords don't match</Text>
           )}
 
           {/* Create account button */}
@@ -353,6 +385,12 @@ const styles = StyleSheet.create({
   strengthLabel: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 11,
+  },
+  mismatchText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: colors.danger,
+    marginBottom: 4,
   },
   button: {
     backgroundColor: colors.moss,

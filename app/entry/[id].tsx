@@ -10,6 +10,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { AISummaryCard } from '@/components/ui/AISummaryCard';
 import { AchievementCard } from '@/components/achievements/AchievementCard';
 import { LoadingIndicator } from '@/components/ui/LoadingIndicator';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { parseLocalDate } from '@/lib/dates';
 import type { Entry, ProfessionalAchievement } from '@/types/database';
 
@@ -19,7 +20,7 @@ export default function EntryDetailScreen() {
   const insets = useSafeAreaInsets();
   const userId = useUserStore((s) => s.authUser?.id);
 
-  const { data: entry, isLoading: entryLoading } = useQuery<Entry>({
+  const { data: entry, isLoading: entryLoading } = useQuery<Entry | null>({
     queryKey: ['entry', id],
     enabled: !!id && !!userId,
     queryFn: async () => {
@@ -29,9 +30,9 @@ export default function EntryDetailScreen() {
         .eq('entry_id', id!)
         .eq('user_id', userId!)
         .is('deleted_at', null)
-        .single();
+        .limit(1);
       if (error) throw error;
-      return data as Entry;
+      return (data && data.length > 0 ? data[0] : null) as Entry | null;
     },
   });
 
@@ -55,7 +56,20 @@ export default function EntryDetailScreen() {
     return <LoadingIndicator fullScreen />;
   }
 
-  if (!entry) return null;
+  if (!entry) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.topBar}>
+          <BackButton label="Entries" onPress={() => router.replace('/(tabs)/entries')} />
+        </View>
+        <EmptyState
+          message="This entry could not be found."
+          ctaLabel="Go to Entries"
+          onCtaPress={() => router.replace('/(tabs)/entries')}
+        />
+      </View>
+    );
+  }
 
   const dateStr = parseLocalDate(entry.entry_date).toLocaleDateString('en-US', {
     weekday: 'long',
@@ -63,6 +77,8 @@ export default function EntryDetailScreen() {
     day: 'numeric',
     year: 'numeric',
   });
+
+  const hasAchievements = achievements && achievements.length > 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -79,10 +95,18 @@ export default function EntryDetailScreen() {
           </View>
         )}
 
-        <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
-        {(achievements ?? []).map((a) => (
-          <AchievementCard key={a.achievement_id} achievement={a} />
-        ))}
+        {hasAchievements ? (
+          <>
+            <Text style={styles.sectionLabel}>ACHIEVEMENTS</Text>
+            {achievements.map((a) => (
+              <AchievementCard key={a.achievement_id} achievement={a} />
+            ))}
+          </>
+        ) : (
+          <Text style={styles.noAchievementsText}>
+            No achievements recorded for this entry yet.
+          </Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -117,5 +141,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 10,
+  },
+  noAchievementsText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: colors.umber,
+    fontStyle: 'italic',
+    marginTop: 8,
   },
 });
