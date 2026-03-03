@@ -3,7 +3,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@0.39.0";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 1000;
+const MAX_TOKENS = 2000;
 const TEMPERATURE = 0;
 
 const UNIVERSAL_SYSTEM_PROMPT = `You are a synthesis assistant for a career memory app. Your job is to help professionals capture and articulate their work accomplishments.
@@ -37,7 +37,14 @@ You will produce a JSON object with these fields:
 - Always preserve specific details — exact metrics, named projects, specific methods. Don't flatten "reduced churn by 18% in Q3" into "improved customer retention."
 - If they only answered one question with two sentences, your paragraph should be one or two sentences. Don't pad it.
 - The name should reflect the actual work, not a generic category. "Rebuilt onboarding flow to reduce churn" is better than "Product Improvement Initiative."
-- Return ONLY valid JSON. No preamble, no explanation, no markdown code fences.`;
+- Return ONLY valid JSON. No preamble, no explanation, no markdown code fences.
+
+MULTI-ACHIEVEMENT DETECTION:
+After producing the single-achievement synthesis above, evaluate whether the user's input describes 2 or more genuinely distinct accomplishments. Only flag as multi-achievement if the accomplishments are clearly separate pieces of work (different projects, different outcomes, different timeframes). Do NOT split if the input describes multiple aspects of one accomplishment.
+
+If multi-achievement is detected, add a "suggested_splits" array to your JSON response. Each element is an object with the same fields as the main response: "name", "paragraph", "bullets", "star_situation", "star_task", "star_action", "star_result", "tags", "completeness_flags", "completeness_score". Each split should be a full, self-contained synthesis of that specific accomplishment.
+
+If NOT multi-achievement, omit "suggested_splits" entirely from the response.`;
 
 const ACHIEVEMENT_NAME_SYSTEM = `Generate a short achievement name only — 4–7 words, descriptive, no punctuation. Based only on what the user provided. Return only the name string, nothing else.`;
 
@@ -193,6 +200,37 @@ function validateAchievementResult(parsed: Record<string, unknown>) {
   if (!Array.isArray(parsed.tags)) throw new Error("tags must be an array");
   if (!Array.isArray(parsed.completeness_flags)) throw new Error("completeness_flags must be an array");
   if (typeof parsed.completeness_score !== "number") throw new Error("completeness_score must be a number");
+
+  // Validate suggested_splits if present
+  if (parsed.suggested_splits !== undefined) {
+    if (!Array.isArray(parsed.suggested_splits)) {
+      throw new Error("suggested_splits must be an array");
+    }
+    for (let i = 0; i < (parsed.suggested_splits as unknown[]).length; i++) {
+      const split = (parsed.suggested_splits as Record<string, unknown>[])[i];
+      const splitRequired = ["name", "paragraph", "bullets", "tags", "completeness_flags", "completeness_score"];
+      for (const key of splitRequired) {
+        if (!(key in split)) {
+          throw new Error(`suggested_splits[${i}] missing required field: ${key}`);
+        }
+      }
+    }
+  }
+}
+
+function mapSplitResult(split: Record<string, unknown>) {
+  return {
+    name: split.name as string,
+    paragraph: split.paragraph as string,
+    bullets: split.bullets as string[],
+    star_situation: (split.star_situation as string) ?? null,
+    star_task: (split.star_task as string) ?? null,
+    star_action: (split.star_action as string) ?? null,
+    star_result: (split.star_result as string) ?? null,
+    tag_suggestions: split.tags as string[],
+    completeness_score: split.completeness_score as number,
+    completeness_flags: split.completeness_flags as string[],
+  };
 }
 
 // --- CORS headers ---
@@ -283,7 +321,7 @@ Deno.serve(async (req) => {
     if (type === "achievement") {
       const parsed = parseJSON(rawText);
       validateAchievementResult(parsed);
-      result = {
+      const mapped: Record<string, unknown> = {
         ai_generated_name: parsed.name,
         synthesis_paragraph: parsed.paragraph,
         synthesis_bullets: parsed.bullets,
@@ -295,6 +333,13 @@ Deno.serve(async (req) => {
         completeness_score: parsed.completeness_score,
         completeness_flags: parsed.completeness_flags,
       };
+
+      // Include suggested_splits if AI detected multiple achievements
+      if (Array.isArray(parsed.suggested_splits) && parsed.suggested_splits.length > 1) {
+        mapped.suggested_splits = (parsed.suggested_splits as Record<string, unknown>[]).map(mapSplitResult);
+      }
+
+      result = mapped;
     } else {
       // All other types return plain text
       result = { text: rawText };

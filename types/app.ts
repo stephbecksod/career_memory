@@ -19,6 +19,20 @@ export type ProcessingStage =
 /** Entries page view toggle */
 export type EntriesViewMode = 'by_entry' | 'by_achievement';
 
+/** A single split suggestion from multi-achievement detection */
+export interface SuggestedSplit {
+  name: string;
+  paragraph: string;
+  bullets: string[];
+  star_situation: string | null;
+  star_task: string | null;
+  star_action: string | null;
+  star_result: string | null;
+  tag_suggestions: string[];
+  completeness_score: number;
+  completeness_flags: string[];
+}
+
 /** Synthesis result from Claude API */
 export interface SynthesisResult {
   ai_generated_name: string;
@@ -31,6 +45,7 @@ export interface SynthesisResult {
   tag_suggestions: string[];
   completeness_score: number;
   completeness_flags: string[];
+  suggested_splits?: SuggestedSplit[];
 }
 
 /** Input for achievement synthesis Edge Function */
@@ -76,6 +91,13 @@ export interface HighlightItem {
 /** Entry card display data */
 export interface EntryCardData extends Entry {
   achievements: ProfessionalAchievement[];
+}
+
+/** Audio recording metadata for voice entries */
+export interface AudioMeta {
+  storagePath: string;
+  durationSeconds: number;
+  expiresAt: string; // ISO date
 }
 
 /** Status badge config */

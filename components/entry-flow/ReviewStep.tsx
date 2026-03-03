@@ -15,7 +15,8 @@ import { Card } from '@/components/ui/Card';
 import { Tag } from '@/components/ui/Tag';
 import { Button } from '@/components/ui/Button';
 import { InlineProjectPicker } from '@/components/projects/InlineProjectPicker';
-import type { SynthesisResult } from '@/types/app';
+import { SplitPrompt } from '@/components/entry-flow/SplitPrompt';
+import type { SynthesisResult, SuggestedSplit } from '@/types/app';
 
 interface ReviewStepProps {
   synthesis: SynthesisResult;
@@ -25,6 +26,8 @@ interface ReviewStepProps {
   onAddAnother: () => void;
   saving: boolean;
   onNameChange: (name: string) => void;
+  onAcceptSplits?: (selectedSplits: SuggestedSplit[]) => void;
+  splittingSaving?: boolean;
 }
 
 export function ReviewStep({
@@ -35,12 +38,20 @@ export function ReviewStep({
   onAddAnother,
   saving,
   onNameChange,
+  onAcceptSplits,
+  splittingSaving,
 }: ReviewStepProps) {
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(synthesis.ai_generated_name);
   const [editingSummary, setEditingSummary] = useState(false);
   const [summary, setSummary] = useState(synthesis.synthesis_paragraph);
   const [tags, setTags] = useState<string[]>(synthesis.tag_suggestions);
+  const [splitDismissed, setSplitDismissed] = useState(false);
+
+  const hasSplits = !splitDismissed
+    && synthesis.suggested_splits
+    && synthesis.suggested_splits.length > 1
+    && onAcceptSplits;
 
   const handleRemoveTag = (tag: string) => {
     setTags((prev) => prev.filter((t) => t !== tag));
@@ -58,6 +69,16 @@ export function ReviewStep({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Split prompt — shown when AI detects multiple achievements */}
+        {hasSplits && (
+          <SplitPrompt
+            splits={synthesis.suggested_splits!}
+            onDismiss={() => setSplitDismissed(true)}
+            onAcceptSplits={onAcceptSplits}
+            saving={splittingSaving ?? false}
+          />
+        )}
+
         {/* Achievement name */}
         <Text style={styles.sectionLabel}>ACHIEVEMENT</Text>
         {editingName ? (

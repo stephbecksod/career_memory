@@ -28,6 +28,8 @@ export const colors = {
   dangerFaint: 'rgba(176,90,64,0.08)',
   dangerBorder: 'rgba(176,90,64,0.2)',
 
+  sidebar: '#EDE8DF',
+
   white: '#FFFFFF',
   transparent: 'transparent',
 } as const;

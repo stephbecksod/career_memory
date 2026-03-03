@@ -231,16 +231,27 @@ export default function OnboardingScreen() {
           </View>
 
           <View style={styles.welcomeButtons}>
-            <TouchableOpacity style={styles.getStartedBtn} onPress={goNext}>
-              <Text style={styles.getStartedText}>Get started</Text>
-            </TouchableOpacity>
-            {!session && (
-              <TouchableOpacity
-                style={styles.hasAccountBtn}
-                onPress={() => router.replace('/(auth)/sign-in')}
-              >
-                <Text style={styles.hasAccountText}>I already have an account</Text>
+            {session ? (
+              // Authenticated user — proceed to onboarding steps
+              <TouchableOpacity style={styles.getStartedBtn} onPress={goNext}>
+                <Text style={styles.getStartedText}>Get started</Text>
               </TouchableOpacity>
+            ) : (
+              // Unauthenticated user — auth gateway
+              <>
+                <TouchableOpacity
+                  style={styles.getStartedBtn}
+                  onPress={() => router.push('/(auth)/sign-in')}
+                >
+                  <Text style={styles.getStartedText}>Sign in</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.hasAccountBtn}
+                  onPress={() => router.push('/(auth)/sign-up')}
+                >
+                  <Text style={styles.hasAccountText}>Create an account</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </SafeAreaView>

@@ -19,9 +19,12 @@ import type { Company } from '@/types/database';
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
+  // Parse directly from "YYYY-MM-DD" to avoid timezone offset issues
+  const parts = dateStr.split('-');
+  if (parts.length < 2) return '';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  return `${months[monthIdx] ?? ''} ${parts[0]}`;
 }
 
 export default function CompaniesScreen() {
@@ -86,7 +89,7 @@ export default function CompaniesScreen() {
                       <Text style={styles.roleText}>{company.role_title}</Text>
                     )}
                     <Text style={styles.dateText}>
-                      {formatDate(company.start_date)} — {company.end_date ? formatDate(company.end_date) : 'Present'}
+                      {formatDate(company.start_date)}{company.end_date ? ` — ${formatDate(company.end_date)}` : company.is_current ? ' — Present' : ''}
                     </Text>
                   </View>
 

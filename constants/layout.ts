@@ -30,6 +30,6 @@ export const layout = {
     height: 60,
   },
   sidebar: {
-    width: 240,
+    width: 220,
   },
 } as const;

@@ -116,17 +116,14 @@ export default function SettingsIndex() {
           />
         </View>
 
-        {/* Delete account */}
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => setShowDeleteConfirm(true)}
-        >
-          <Text style={styles.deleteButtonText}>Delete account</Text>
-        </TouchableOpacity>
-
         <Text style={styles.versionText}>
           Career Memory · v1.0
         </Text>
+
+        {/* Delete account — subtle footer link */}
+        <TouchableOpacity onPress={() => setShowDeleteConfirm(true)}>
+          <Text style={styles.deleteLink}>Delete account</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Delete confirmation modal */}
@@ -349,27 +346,20 @@ const styles = StyleSheet.create({
     color: colors.umber,
     marginTop: 1,
   },
-  deleteButton: {
-    marginHorizontal: 18,
-    padding: 11,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-    backgroundColor: colors.dangerFaint,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  deleteButtonText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 13,
-    color: colors.danger,
-  },
   versionText: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 10.5,
     color: colors.umber,
     textAlign: 'center',
-    paddingVertical: 16,
+    paddingTop: 24,
+    paddingBottom: 6,
+  },
+  deleteLink: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 11,
+    color: colors.danger,
+    textAlign: 'center',
+    paddingBottom: 16,
   },
   modalBackdrop: {
     flex: 1,

@@ -67,6 +67,7 @@ export default function NotificationEditorScreen() {
   const [tz, setTz] = useState('America/Los_Angeles');
   const [preview, setPreview] = useState('What did you accomplish this week? 🎯');
   const [customPreview, setCustomPreview] = useState(false);
+  const [tzOpen, setTzOpen] = useState(false);
 
   useEffect(() => {
     if (existingSchedule) {
@@ -76,11 +77,26 @@ export default function NotificationEditorScreen() {
         setWeekDay(ALL_DAYS[existingSchedule.day_of_week]);
       }
       if (existingSchedule.notification_time) {
-        const parts = existingSchedule.notification_time.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (parts) {
-          setHour(parts[1]);
-          setMinute(parts[2]);
-          setAmpm(parts[3].toUpperCase());
+        const timeStr = existingSchedule.notification_time;
+        // Try 12h format first (e.g. "5:00 PM")
+        const ampmMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (ampmMatch) {
+          setHour(ampmMatch[1]);
+          setMinute(ampmMatch[2]);
+          setAmpm(ampmMatch[3].toUpperCase());
+        } else {
+          // 24h format (e.g. "17:00")
+          const parts24 = timeStr.match(/(\d+):(\d+)/);
+          if (parts24) {
+            let h = parseInt(parts24[1], 10);
+            const m = parts24[2];
+            const ap = h >= 12 ? 'PM' : 'AM';
+            if (h === 0) h = 12;
+            else if (h > 12) h -= 12;
+            setHour(String(h));
+            setMinute(m);
+            setAmpm(ap);
+          }
         }
       }
       setTz(existingSchedule.timezone);
@@ -302,38 +318,35 @@ export default function NotificationEditorScreen() {
 
         {/* Time */}
         <SectionLabel>Time</SectionLabel>
-        <View style={styles.timeRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeScroll}>
-            <View style={styles.timePills}>
-              {HOURS.map((h) => (
-                <TouchableOpacity
-                  key={h}
-                  style={[styles.timePill, hour === h && styles.timePillSelected]}
-                  onPress={() => setHour(h)}
-                >
-                  <Text style={[styles.timePillText, hour === h && styles.timePillTextSelected]}>
-                    {h}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-          <Text style={styles.timeSeparator}>:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeScroll}>
-            <View style={styles.timePills}>
-              {MINUTES.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.timePill, minute === m && styles.timePillSelected]}
-                  onPress={() => setMinute(m)}
-                >
-                  <Text style={[styles.timePillText, minute === m && styles.timePillTextSelected]}>
-                    {m}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+        <View style={styles.timeSection}>
+          <Text style={styles.subLabel}>Hour</Text>
+          <View style={styles.timePillsWrap}>
+            {HOURS.map((h) => (
+              <TouchableOpacity
+                key={h}
+                style={[styles.timePill, hour === h && styles.timePillSelected]}
+                onPress={() => setHour(h)}
+              >
+                <Text style={[styles.timePillText, hour === h && styles.timePillTextSelected]}>
+                  {h}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.subLabel, { marginTop: 10 }]}>Minute</Text>
+          <View style={styles.timePillsWrap}>
+            {MINUTES.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.timePill, minute === m && styles.timePillSelected]}
+                onPress={() => setMinute(m)}
+              >
+                <Text style={[styles.timePillText, minute === m && styles.timePillTextSelected]}>
+                  {m}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <View style={styles.ampmRow}>
             {['AM', 'PM'].map((v) => (
               <TouchableOpacity
@@ -351,22 +364,40 @@ export default function NotificationEditorScreen() {
 
         {/* Timezone */}
         <SectionLabel>Time zone</SectionLabel>
-        <View style={styles.tzContainer}>
-          {TIMEZONES.map((t) => (
-            <TouchableOpacity
-              key={t.value}
-              style={[styles.tzRow, tz === t.value && styles.tzRowSelected]}
-              onPress={() => setTz(t.value)}
-            >
-              <Text style={[styles.tzText, tz === t.value && styles.tzTextSelected]}>
-                {t.label}
-              </Text>
-              {tz === t.value && (
-                <FontAwesome name="check" size={12} color={colors.moss} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TouchableOpacity
+          style={styles.tzSelector}
+          onPress={() => setTzOpen(!tzOpen)}
+        >
+          <Text style={styles.tzSelectorText}>
+            {TIMEZONES.find((t) => t.value === tz)?.label || tz}
+          </Text>
+          <FontAwesome
+            name={tzOpen ? 'chevron-up' : 'chevron-down'}
+            size={11}
+            color={colors.umber}
+          />
+        </TouchableOpacity>
+        {tzOpen && (
+          <View style={styles.tzContainer}>
+            {TIMEZONES.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                style={[styles.tzRow, tz === t.value && styles.tzRowSelected]}
+                onPress={() => {
+                  setTz(t.value);
+                  setTzOpen(false);
+                }}
+              >
+                <Text style={[styles.tzText, tz === t.value && styles.tzTextSelected]}>
+                  {t.label}
+                </Text>
+                {tz === t.value && (
+                  <FontAwesome name="check" size={12} color={colors.moss} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Notification preview */}
         <SectionLabel>Notification message</SectionLabel>
@@ -585,18 +616,13 @@ const styles = StyleSheet.create({
     fontFamily: 'DMSans_500Medium',
     color: colors.white,
   },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  timeSection: {
     marginBottom: 16,
   },
-  timeScroll: {
-    flex: 1,
-  },
-  timePills: {
+  timePillsWrap: {
     flexDirection: 'row',
-    gap: 4,
+    flexWrap: 'wrap',
+    gap: 5,
   },
   timePill: {
     paddingHorizontal: 10,
@@ -619,14 +645,10 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: 'DMSans_500Medium',
   },
-  timeSeparator: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 16,
-    color: colors.walnut,
-  },
   ampmRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 5,
+    marginTop: 10,
   },
   ampmPill: {
     paddingHorizontal: 10,
@@ -648,6 +670,23 @@ const styles = StyleSheet.create({
   ampmPillTextSelected: {
     color: colors.white,
     fontFamily: 'DMSans_500Medium',
+  },
+  tzSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  tzSelectorText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: colors.walnut,
   },
   tzContainer: {
     backgroundColor: colors.card,

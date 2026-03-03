@@ -4,7 +4,7 @@ import { useUserStore } from '@/stores/userStore';
 
 interface CompanyInput {
   name: string;
-  role_title: string;
+  role_title?: string;
   start_date: string | null;
   end_date?: string | null;
   is_current: boolean;
@@ -23,11 +23,12 @@ export function useCompanyMutations() {
       const authUserId = await ensureAuthSession();
       const companyId = crypto.randomUUID();
 
-      // If marking as current, unset all other current companies
+      // If marking as current, only unset is_current on other companies
+      // Do NOT auto-set end_date — that's the user's responsibility
       if (input.is_current) {
         await supabase
           .from('companies')
-          .update({ is_current: false, end_date: input.start_date })
+          .update({ is_current: false })
           .eq('user_id', authUserId)
           .eq('is_current', true)
           .is('deleted_at', null);
@@ -37,9 +38,9 @@ export function useCompanyMutations() {
         company_id: companyId,
         user_id: authUserId,
         name: input.name,
-        role_title: input.role_title,
+        role_title: input.role_title || null,
         start_date: input.start_date,
-        end_date: input.is_current ? null : (input.end_date || null),
+        end_date: input.end_date || null,
         is_current: input.is_current,
       });
 
@@ -62,11 +63,12 @@ export function useCompanyMutations() {
     mutationFn: async ({ id, ...input }: CompanyInput & { id: string }) => {
       const authUserId = await ensureAuthSession();
 
-      // If marking as current, unset all other current companies
+      // If marking as current, only unset is_current on other companies
+      // Do NOT auto-set end_date or change start_date on other companies
       if (input.is_current) {
         await supabase
           .from('companies')
-          .update({ is_current: false, end_date: input.start_date })
+          .update({ is_current: false })
           .eq('user_id', authUserId)
           .eq('is_current', true)
           .neq('company_id', id)
@@ -77,9 +79,9 @@ export function useCompanyMutations() {
         .from('companies')
         .update({
           name: input.name,
-          role_title: input.role_title,
+          role_title: input.role_title || null,
           start_date: input.start_date,
-          end_date: input.is_current ? null : (input.end_date || null),
+          end_date: input.end_date || null,
           is_current: input.is_current,
         })
         .eq('company_id', id)

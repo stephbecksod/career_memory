@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useTags } from '@/hooks/useTags';
 import { synthesizeProjectSummary } from '@/lib/synthesis';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/colors';
@@ -36,6 +37,9 @@ export default function AchievementDetailScreen() {
   const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const { data: allTags } = useTags();
   const [editedFields, setEditedFields] = useState<{
     name: string;
     summary: string;
@@ -152,6 +156,65 @@ export default function AchievementDetailScreen() {
     },
   });
 
+  const addTag = useMutation({
+    mutationFn: async (tagName: string) => {
+      if (!achievement || !userId) return;
+      const slug = tagName.trim().toLowerCase().replace(/\s+/g, '_');
+      if (!slug) return;
+
+      // Find or create the tag
+      let tagId: string | null = null;
+      const { data: existingTags } = await supabase
+        .from('tags')
+        .select('tag_id')
+        .eq('slug', slug)
+        .limit(1);
+
+      if (existingTags && existingTags.length > 0) {
+        tagId = existingTags[0].tag_id;
+      } else {
+        const newTagId = crypto.randomUUID();
+        const { error } = await supabase.from('tags').insert({
+          tag_id: newTagId,
+          user_id: userId,
+          name: tagName.trim(),
+          slug,
+        });
+        if (error) throw error;
+        tagId = newTagId;
+      }
+
+      // Check if this tag is already linked
+      const { data: existingLink } = await supabase
+        .from('achievement_tags')
+        .select('achievement_tag_id, is_confirmed')
+        .eq('achievement_id', achievement.achievement_id)
+        .eq('tag_id', tagId)
+        .limit(1);
+
+      if (existingLink && existingLink.length > 0) {
+        // Re-confirm if it was unconfirmed
+        if (!existingLink[0].is_confirmed) {
+          await supabase
+            .from('achievement_tags')
+            .update({ is_confirmed: true })
+            .eq('achievement_tag_id', existingLink[0].achievement_tag_id);
+        }
+      } else {
+        await supabase.from('achievement_tags').insert({
+          achievement_id: achievement.achievement_id,
+          tag_id: tagId,
+          source: 'user',
+          is_confirmed: true,
+        });
+      }
+    },
+    onSuccess: () => {
+      setNewTagName('');
+      queryClient.invalidateQueries({ queryKey: ['achievement-tags', id] });
+    },
+  });
+
   const enterEditMode = () => {
     if (!achievement) return;
     setEditedFields({
@@ -170,6 +233,15 @@ export default function AchievementDetailScreen() {
 
   const name = achievement.ai_generated_name ?? 'Achievement';
   const confirmedTags = (tags ?? []).filter((at) => at.is_confirmed);
+  // Exclude all tags already linked to this achievement (confirmed or not)
+  const linkedTagIds = new Set((tags ?? []).map((at) => at.tag_id));
+
+  // Filter available tags for the dropdown: exclude already-linked tags, filter by search text
+  const tagSuggestions = (allTags ?? []).filter((t) => {
+    if (linkedTagIds.has(t.tag_id)) return false;
+    if (!newTagName.trim()) return true;
+    return t.name.toLowerCase().includes(newTagName.trim().toLowerCase());
+  });
 
   const starFields = [
     { key: 'star_situation' as const, label: 'Situation', value: achievement.star_situation },
@@ -218,7 +290,7 @@ export default function AchievementDetailScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {/* Name */}
         {isEditing ? (
           <TextInput
@@ -305,16 +377,72 @@ export default function AchievementDetailScreen() {
               ))}
 
         {/* Tags */}
-        {confirmedTags.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>TAGS</Text>
-            <View style={styles.tagsRow}>
-              {confirmedTags.map((at) => (
-                <Tag key={at.achievement_tag_id} label={at.tag?.name ?? 'Tag'} />
-              ))}
-            </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>TAGS</Text>
+          <View style={styles.tagsRow}>
+            {confirmedTags.map((at) => (
+              <Tag key={at.achievement_tag_id} label={at.tag?.name ?? 'Tag'} />
+            ))}
           </View>
-        )}
+          {isEditing && (
+            <>
+              <View style={styles.tagInputRow}>
+                <TextInput
+                  style={styles.tagInput}
+                  value={newTagName}
+                  onChangeText={(text) => {
+                    setNewTagName(text);
+                    setTagDropdownOpen(true);
+                  }}
+                  placeholder="Add a tag..."
+                  placeholderTextColor={colors.umber}
+                  onFocus={() => setTagDropdownOpen(true)}
+                  onSubmitEditing={() => {
+                    if (newTagName.trim()) {
+                      addTag.mutate(newTagName);
+                      setTagDropdownOpen(false);
+                    }
+                  }}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  style={[styles.tagAddBtn, !newTagName.trim() && { opacity: 0.4 }]}
+                  onPress={() => {
+                    if (newTagName.trim()) {
+                      addTag.mutate(newTagName);
+                      setTagDropdownOpen(false);
+                    }
+                  }}
+                  disabled={!newTagName.trim()}
+                >
+                  <FontAwesome name="plus" size={12} color={colors.white} />
+                </TouchableOpacity>
+              </View>
+              {tagDropdownOpen && tagSuggestions.length > 0 && (
+                <View style={styles.tagDropdown}>
+                  <ScrollView style={styles.tagDropdownScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {tagSuggestions.slice(0, 8).map((t) => (
+                      <TouchableOpacity
+                        key={t.tag_id}
+                        style={styles.tagDropdownItem}
+                        onPress={() => {
+                          addTag.mutate(t.name);
+                          setNewTagName('');
+                          setTagDropdownOpen(false);
+                        }}
+                      >
+                        <Text style={styles.tagDropdownText}>{t.name}</Text>
+                        {t.is_system && (
+                          <Text style={styles.tagDropdownSystem}>system</Text>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </>
+          )}
+        </View>
 
         {/* Project */}
         <Text style={styles.sectionLabel}>PROJECT</Text>
@@ -555,6 +683,62 @@ const styles = StyleSheet.create({
   tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  tagInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  tagInput: {
+    flex: 1,
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: colors.walnut,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tagAddBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.moss,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tagDropdown: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 10,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  tagDropdownScroll: {
+    maxHeight: 200,
+  },
+  tagDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  tagDropdownText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: colors.walnut,
+  },
+  tagDropdownSystem: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 10,
+    color: colors.umber,
   },
   notesSection: {
     marginTop: 12,

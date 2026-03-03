@@ -10,6 +10,85 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-03-02] — Web sidebar layout
+
+**Area:** Navigation, Web
+**Type:** Decision
+
+### What
+Implemented a 220px left sidebar for the web layout that replaces the bottom tab bar. The existing `<Tabs>` navigator still manages screen mounting and navigation — its tab bar is hidden on web via `display: 'none'`. A `<Sidebar>` component renders beside it in a flex row. Root layout wraps content in a `height: 100vh` View on web to prevent double-scroll.
+
+### Why
+The project plan specifies different navigation patterns per platform: left sidebar on web, bottom tab bar on mobile. By keeping the `<Tabs>` component and just hiding its bar, we avoid duplicating screen definitions or route management. The sidebar calls `router.replace()` to switch tabs, which works with Expo Router's tab navigator. This approach matches the web prototype (`career-memory-web.jsx` lines 170–239).
+
+### Impact
+- New files: `components/navigation/Sidebar.tsx`, `hooks/useIsWeb.ts`
+- Modified: `app/(tabs)/_layout.tsx` (conditional sidebar + hidden tab bar), `app/_layout.tsx` (100vh wrapper)
+- `constants/colors.ts` gained `sidebar: '#EDE8DF'`, `constants/layout.ts` sidebar width updated to 220
+- Mobile behavior is completely unchanged — the sidebar code only runs when `Platform.OS === 'web'`
+
+### Watch Out For
+- Active tab detection uses `useSegments()` — when on non-tab routes (settings, entry/new), no sidebar item highlights
+- Tab screen headers are hidden on web (`headerShown: false`) since the sidebar provides navigation context
+- Each tab screen's ScrollView/FlatList must work correctly inside the flex container
+
+---
+
+## [2026-03-02] — Multi-achievement splitting
+
+**Area:** AI Synthesis, Entry Flow
+**Type:** Decision
+
+### What
+Extended the synthesis pipeline to detect when a user's input covers multiple distinct accomplishments and offer to split them into separate achievement records. The AI returns split suggestions alongside the normal single-achievement synthesis in one API call — no extra round-trips.
+
+### Why
+Users sometimes describe multiple accomplishments in a single entry. Keeping them as one achievement makes the data less useful for resume building and project attribution. Splitting at synthesis time (rather than requiring a follow-up API call) keeps costs and latency low.
+
+### Impact
+- `SynthesisResult` type now has optional `suggested_splits` field
+- Edge Function `ACHIEVEMENT_SYSTEM` prompt includes multi-achievement detection instructions
+- `MAX_TOKENS` increased from 1000 to 2000 to accommodate split responses
+- New `SplitPrompt` component in ReviewStep shows when splits are detected
+- New `useSaveSplitAchievements` mutation: soft-deletes original, creates N new achievements with full synthesis fields
+- Keep-as-one is the default — user can dismiss the prompt with no changes
+
+### Watch Out For
+- The AI is instructed to be conservative: only flag genuinely distinct accomplishments, not aspects of one thing
+- When splits are accepted, the original achievement gets `deleted_at` set (soft delete) — it's still in the DB
+- Each split gets both live and `_ai` columns written (first write)
+- Entry summary is regenerated after splits are saved
+
+---
+
+## [2026-03-02] — Voice recording + Whisper transcription
+
+**Area:** Audio, AI Integration
+**Type:** Decision
+
+### What
+Implemented voice recording with platform-aware audio capture (expo-av on native, MediaRecorder on web) and server-side transcription via OpenAI Whisper through a new Supabase Edge Function (`transcribe`). Audio is uploaded to a `audio-recordings` Storage bucket, the Edge Function downloads and sends to Whisper, and the transcript is appended to the main text input.
+
+### Why
+Voice input is a core feature for low-friction capture. Whisper runs server-side to keep OPENAI_API_KEY off the client. Audio goes to Storage first (not through the function invoke body) to avoid binary size limits on Edge Function requests. Transcript appends to mainInput so the user can edit before synthesizing — voice is just an input method.
+
+### Impact
+- New files: `lib/audio.ts`, `lib/whisper.ts`, `components/entry-flow/VoiceRecorder.tsx`, `supabase/functions/transcribe/index.ts`
+- Modified: `EntryStep.tsx` (VoiceRecorder replaces static mic button), `new.tsx` (audioMeta state + transcript handler), `useSaveEntry.ts` (audio fields on headline response row)
+- `base64-arraybuffer` and `expo-file-system` added as dependencies
+- Audio metadata (storagePath, duration, expiresAt) saved on `achievement_responses` headline row
+- Audio retention defaults to 30 days; user preference support deferred (store doesn't expose preferences yet)
+
+### Watch Out For
+- Storage bucket `audio-recordings` must be created manually in Supabase Dashboard (private, 25MB limit)
+- `OPENAI_API_KEY` must be set as a Supabase secret
+- Deploy with: `supabase functions deploy transcribe --no-verify-jwt`
+- Web audio format is webm; native is m4a — Whisper handles both
+- 5-minute max recording enforced client-side
+- `useCallback` referencing `handleStop` inside `startTimer` — the timer auto-stop calls handleStop which must be stable
+
+---
+
 ## [2026-03-02] — Phase 5: Settings overlay + Auth screen redesign
 
 **Area:** Settings, Auth, Navigation

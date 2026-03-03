@@ -23,8 +23,11 @@ const YEARS = Array.from({ length: 15 }, (_, i) => String(2026 - i));
 
 function parseMonthYear(dateStr: string | null): { month: string; year: string } {
   if (!dateStr) return { month: '', year: '' };
-  const d = new Date(dateStr);
-  return { month: MONTHS[d.getMonth()], year: String(d.getFullYear()) };
+  // Parse directly from "YYYY-MM-DD" string to avoid timezone offset issues
+  const parts = dateStr.split('-');
+  if (parts.length < 2) return { month: '', year: '' };
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  return { month: MONTHS[monthIdx] ?? '', year: parts[0] };
 }
 
 function toDateString(month: string, year: string): string | null {
@@ -51,9 +54,10 @@ export default function CompanyEditorScreen() {
   const [endMonth, setEndMonth] = useState('');
   const [endYear, setEndYear] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (existingCompany) {
+    if (existingCompany && !initialized) {
       setName(existingCompany.name);
       setRole(existingCompany.role_title || '');
       const start = parseMonthYear(existingCompany.start_date);
@@ -65,19 +69,27 @@ export default function CompanyEditorScreen() {
         setEndMonth(end.month);
         setEndYear(end.year);
       }
+      setInitialized(true);
     }
-  }, [existingCompany]);
+  }, [existingCompany, initialized]);
 
-  const canSave = name.trim() && role.trim() && startMonth && startYear;
+  const canSave = name.trim() && startMonth && startYear;
+
+  // Validate end date is after start date
+  const endDateStr = toDateString(endMonth, endYear);
+  const startDateStr = toDateString(startMonth, startYear);
+  const hasEndDateError = endDateStr && startDateStr && endDateStr < startDateStr;
 
   const handleSave = async () => {
     if (!canSave) return;
 
+    if (hasEndDateError) return;
+
     const input = {
       name: name.trim(),
-      role_title: role.trim(),
+      role_title: role.trim() || undefined,
       start_date: toDateString(startMonth, startYear),
-      end_date: isCurrent ? null : toDateString(endMonth, endYear),
+      end_date: toDateString(endMonth, endYear),
       is_current: isCurrent,
     };
 
@@ -121,7 +133,7 @@ export default function CompanyEditorScreen() {
         <TouchableOpacity
           style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
           onPress={handleSave}
-          disabled={!canSave || isSaving}
+          disabled={!canSave || !!hasEndDateError || isSaving}
         >
           <Text style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}>
             {isSaving ? '...' : 'Save'}
@@ -143,9 +155,7 @@ export default function CompanyEditorScreen() {
         />
 
         {/* Role title */}
-        <Text style={styles.fieldLabel}>
-          ROLE TITLE <Text style={styles.required}>*</Text>
-        </Text>
+        <Text style={styles.fieldLabel}>ROLE TITLE</Text>
         <TextInput
           style={styles.input}
           value={role}
@@ -210,47 +220,49 @@ export default function CompanyEditorScreen() {
           />
         </View>
 
-        {/* End date — only if not current */}
-        {!isCurrent && (
-          <>
-            <SectionLabel>End date</SectionLabel>
-            <View style={styles.dateRow}>
-              <View style={styles.dateCol}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
-                  <View style={styles.pillRow}>
-                    {MONTHS.map((m) => (
-                      <TouchableOpacity
-                        key={m}
-                        style={[styles.pill, endMonth === m && styles.pillSelected]}
-                        onPress={() => setEndMonth(m)}
-                      >
-                        <Text style={[styles.pillText, endMonth === m && styles.pillTextSelected]}>
-                          {m}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+        {/* End date */}
+        <SectionLabel>End date</SectionLabel>
+        <View style={styles.dateRow}>
+          <View style={styles.dateCol}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
+              <View style={styles.pillRow}>
+                {MONTHS.map((m) => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.pill, endMonth === m && styles.pillSelected]}
+                    onPress={() => setEndMonth(endMonth === m ? '' : m)}
+                  >
+                    <Text style={[styles.pillText, endMonth === m && styles.pillTextSelected]}>
+                      {m}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              <View style={styles.dateCol}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
-                  <View style={styles.pillRow}>
-                    {YEARS.map((y) => (
-                      <TouchableOpacity
-                        key={y}
-                        style={[styles.pill, endYear === y && styles.pillSelected]}
-                        onPress={() => setEndYear(y)}
-                      >
-                        <Text style={[styles.pillText, endYear === y && styles.pillTextSelected]}>
-                          {y}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+            </ScrollView>
+          </View>
+          <View style={styles.dateCol}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
+              <View style={styles.pillRow}>
+                {YEARS.map((y) => (
+                  <TouchableOpacity
+                    key={y}
+                    style={[styles.pill, endYear === y && styles.pillSelected]}
+                    onPress={() => setEndYear(endYear === y ? '' : y)}
+                  >
+                    <Text style={[styles.pillText, endYear === y && styles.pillTextSelected]}>
+                      {y}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
-          </>
+            </ScrollView>
+          </View>
+        </View>
+        {!endMonth && !endYear && (
+          <Text style={styles.hint}>Leave blank if still in this role or no specific end date.</Text>
+        )}
+        {hasEndDateError && (
+          <Text style={[styles.hint, { color: colors.danger }]}>End date must be after start date.</Text>
         )}
 
         {/* Delete (edit only) */}

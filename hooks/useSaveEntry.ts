@@ -4,11 +4,13 @@ import { useUserStore } from '@/stores/userStore';
 import { useCompanies } from '@/hooks/useCompanies';
 import { todayLocalDate } from '@/lib/dates';
 import { SECTION_TYPE, ENTRY_STATUS, SYNTHESIS_STATUS, SOURCE_PLATFORM } from '@/constants/app';
+import type { AudioMeta } from '@/types/app';
 
 interface SaveEntryInput {
   mainInput: string;
   starInputs: Record<string, string>;
   projectId?: string | null;
+  audioMeta?: AudioMeta;
 }
 
 interface SaveEntryResult {
@@ -27,7 +29,7 @@ export function useSaveEntry() {
   const { currentCompany } = useCompanies();
 
   return useMutation({
-    mutationFn: async ({ mainInput, starInputs, projectId }: SaveEntryInput): Promise<SaveEntryResult> => {
+    mutationFn: async ({ mainInput, starInputs, projectId, audioMeta }: SaveEntryInput): Promise<SaveEntryResult> => {
       if (!userId) throw new Error('Not authenticated');
 
       console.log('[SaveEntry] Starting save-before-synthesize...');
@@ -171,12 +173,24 @@ export function useSaveEntry() {
       ];
 
       console.log('[SaveEntry] Saving responses...');
-      const responseRows = responses.map((r) => ({
-        achievement_id: achievementId,
-        question_key: r.question_key,
-        question_text_snapshot: r.question_text_snapshot,
-        response_text: r.response_text,
-      }));
+      const responseRows = responses.map((r) => {
+        const row: Record<string, unknown> = {
+          achievement_id: achievementId,
+          question_key: r.question_key,
+          question_text_snapshot: r.question_text_snapshot,
+          response_text: r.response_text,
+        };
+
+        // Attach audio metadata to the headline response row
+        if (r.question_key === 'headline' && audioMeta) {
+          row.audio_file_url = audioMeta.storagePath;
+          row.audio_duration_seconds = audioMeta.durationSeconds;
+          row.audio_expires_at = audioMeta.expiresAt;
+          row.transcript_raw = mainInput;
+        }
+
+        return row;
+      });
 
       try {
         const { error: responsesError } = await withTimeout(

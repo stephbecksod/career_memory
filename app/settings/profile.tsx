@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const [lastName, setLastName] = useState(profile?.last_name || '');
   const [roleTitle, setRoleTitle] = useState(profile?.default_role_title || '');
   const [timezone, setTimezone] = useState(profile?.timezone || 'America/Los_Angeles');
+  const [tzOpen, setTzOpen] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -161,27 +163,48 @@ export default function ProfileScreen() {
 
           <View>
             <Text style={styles.fieldLabel}>TIMEZONE</Text>
-            <View style={styles.pickerContainer}>
-              {TIMEZONES.map((tz) => (
-                <TouchableOpacity
-                  key={tz.value}
-                  style={[
-                    styles.tzOption,
-                    timezone === tz.value && styles.tzOptionSelected,
-                  ]}
-                  onPress={() => setTimezone(tz.value)}
-                >
-                  <Text
+            <TouchableOpacity
+              style={styles.tzSelector}
+              onPress={() => setTzOpen(!tzOpen)}
+            >
+              <Text style={styles.tzSelectorText}>
+                {TIMEZONES.find((t) => t.value === timezone)?.label || timezone}
+              </Text>
+              <FontAwesome
+                name={tzOpen ? 'chevron-up' : 'chevron-down'}
+                size={11}
+                color={colors.umber}
+              />
+            </TouchableOpacity>
+            {tzOpen && (
+              <View style={styles.pickerContainer}>
+                {TIMEZONES.map((tz) => (
+                  <TouchableOpacity
+                    key={tz.value}
                     style={[
-                      styles.tzOptionText,
-                      timezone === tz.value && styles.tzOptionTextSelected,
+                      styles.tzOption,
+                      timezone === tz.value && styles.tzOptionSelected,
                     ]}
+                    onPress={() => {
+                      setTimezone(tz.value);
+                      setTzOpen(false);
+                    }}
                   >
-                    {tz.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+                    <Text
+                      style={[
+                        styles.tzOptionText,
+                        timezone === tz.value && styles.tzOptionTextSelected,
+                      ]}
+                    >
+                      {tz.label}
+                    </Text>
+                    {timezone === tz.value && (
+                      <FontAwesome name="check" size={12} color={colors.moss} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           <TouchableOpacity
@@ -302,6 +325,23 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: colors.moss,
   },
+  tzSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  tzSelectorText: {
+    fontFamily: 'DMSans_400Regular',
+    fontSize: 13,
+    color: colors.walnut,
+  },
   pickerContainer: {
     backgroundColor: colors.bg,
     borderWidth: 1,
@@ -310,6 +350,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   tzOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderBottomWidth: 1,

@@ -15,6 +15,8 @@ import { layout } from '@/constants/layout';
 import { SYSTEM_QUESTIONS, QUESTION_KEYS } from '@/constants/questions';
 import { Button } from '@/components/ui/Button';
 import { InlineProjectPicker } from '@/components/projects/InlineProjectPicker';
+import { VoiceRecorder } from '@/components/entry-flow/VoiceRecorder';
+import type { AudioMeta } from '@/types/app';
 
 interface EntryStepProps {
   mainInput: string;
@@ -24,6 +26,8 @@ interface EntryStepProps {
   selectedProjectId: string | null;
   onProjectSelect: (id: string | null) => void;
   onSynthesize: () => void;
+  onTranscript: (text: string, meta: AudioMeta) => void;
+  audioMeta?: AudioMeta | null;
 }
 
 const STAR_QUESTIONS = SYSTEM_QUESTIONS.filter(
@@ -38,6 +42,8 @@ export function EntryStep({
   selectedProjectId,
   onProjectSelect,
   onSynthesize,
+  onTranscript,
+  audioMeta,
 }: EntryStepProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const canSynthesize = mainInput.trim().length > 3;
@@ -67,9 +73,7 @@ export function EntryStep({
             onChangeText={onMainInputChange}
             textAlignVertical="top"
           />
-          <TouchableOpacity style={styles.micButton}>
-            <FontAwesome name="microphone" size={18} color={colors.white} />
-          </TouchableOpacity>
+          <VoiceRecorder onTranscript={onTranscript} />
         </View>
 
         {/* STAR accordion */}
@@ -175,16 +179,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.walnut,
     minHeight: 100,
-  },
-  micButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.moss,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-    marginTop: 4,
   },
   optionalLabel: {
     fontFamily: 'DMSans_500Medium',

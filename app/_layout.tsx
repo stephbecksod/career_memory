@@ -1,6 +1,7 @@
 import 'react-native-reanimated';
 import 'react-native-gesture-handler';
 import { useEffect } from 'react';
+import { View, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
 import {
   Nunito_400Regular,
@@ -72,17 +73,29 @@ export default function RootLayout() {
     return null;
   }
 
+  const rootContent = (
+    <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="entry" />
+      <Stack.Screen name="achievement" />
+      <Stack.Screen name="project" />
+      <Stack.Screen name="settings" />
+    </Stack>
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="entry" />
-        <Stack.Screen name="achievement" />
-        <Stack.Screen name="project" />
-        <Stack.Screen name="settings" />
-      </Stack>
+      {Platform.OS === 'web' ? (
+        <View style={{ height: '100vh' as any, overflow: 'hidden' }}>
+          {rootContent}
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>
+          {rootContent}
+        </View>
+      )}
     </QueryClientProvider>
   );
 }

@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
+import { View, Platform } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/colors';
+import Sidebar from '@/components/navigation/Sidebar';
+
+const isWeb = Platform.OS === 'web';
 
 function TabIcon(props: { name: React.ComponentProps<typeof FontAwesome>['name']; color: string }) {
   return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
@@ -21,18 +25,20 @@ export default function TabLayout() {
     }
   }, [session, profile, router]);
 
-  return (
+  const tabs = (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.moss,
         tabBarInactiveTintColor: colors.umber,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.cardBorder,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
-        },
+        tabBarStyle: isWeb
+          ? { display: 'none' as const }
+          : {
+              backgroundColor: colors.card,
+              borderTopColor: colors.cardBorder,
+              height: 60,
+              paddingBottom: 8,
+              paddingTop: 4,
+            },
         headerStyle: {
           backgroundColor: colors.bg,
         },
@@ -41,6 +47,7 @@ export default function TabLayout() {
           fontFamily: 'Nunito_700Bold',
         },
         headerShadowVisible: false,
+        ...(isWeb && { headerShown: false }),
       }}
     >
       <Tabs.Screen
@@ -74,4 +81,17 @@ export default function TabLayout() {
       />
     </Tabs>
   );
+
+  if (isWeb) {
+    return (
+      <View style={{ flex: 1, flexDirection: 'row', height: '100%' as any }}>
+        <Sidebar />
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          {tabs}
+        </View>
+      </View>
+    );
+  }
+
+  return tabs;
 }

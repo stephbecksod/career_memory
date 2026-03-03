@@ -11,8 +11,8 @@ import { SynthesisErrorView } from '@/components/entry-flow/SynthesisErrorView';
 import { supabase } from '@/lib/supabase';
 import { useSynthesis } from '@/hooks/useSynthesis';
 import { useSaveEntry } from '@/hooks/useSaveEntry';
-import { useSaveSynthesis, useInvalidateEntryQueries } from '@/hooks/useSaveSynthesis';
-import type { EntryFlowStep, SynthesisResult } from '@/types/app';
+import { useSaveSynthesis, useSaveSplitAchievements, useInvalidateEntryQueries } from '@/hooks/useSaveSynthesis';
+import type { EntryFlowStep, SynthesisResult, SuggestedSplit, AudioMeta } from '@/types/app';
 
 export default function NewEntryScreen() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function NewEntryScreen() {
   const { synthesize } = useSynthesis();
   const saveEntry = useSaveEntry();
   const saveSynthesis = useSaveSynthesis();
+  const saveSplitAchievements = useSaveSplitAchievements();
   const invalidateQueries = useInvalidateEntryQueries();
 
   const [step, setStep] = useState<EntryFlowStep>('input');
@@ -33,6 +34,16 @@ export default function NewEntryScreen() {
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
   const [savedAchievementId, setSavedAchievementId] = useState<string | null>(null);
   const [synthesisError, setSynthesisError] = useState(false);
+  const [audioMeta, setAudioMeta] = useState<AudioMeta | null>(null);
+
+  const handleTranscript = useCallback((text: string, meta: AudioMeta) => {
+    setMainInput((prev) => {
+      // Append transcript to existing text, with a space separator if needed
+      if (prev.trim().length > 0) return prev.trimEnd() + ' ' + text;
+      return text;
+    });
+    setAudioMeta(meta);
+  }, []);
 
   const handleStarInputChange = useCallback((key: string, text: string) => {
     setStarInputs((prev) => ({ ...prev, [key]: text }));
@@ -55,6 +66,7 @@ export default function NewEntryScreen() {
         mainInput,
         starInputs,
         projectId: selectedProjectId,
+        audioMeta: audioMeta ?? undefined,
       });
       entryId = saved.entryId;
       achievementId = saved.achievementId;
@@ -174,7 +186,27 @@ export default function NewEntryScreen() {
     setSavedEntryId(null);
     setSavedAchievementId(null);
     setSynthesisError(false);
+    setAudioMeta(null);
     setStep('input');
+  };
+
+  /**
+   * Accept split — soft-delete original achievement, create N new ones.
+   */
+  const handleAcceptSplits = async (selectedSplits: SuggestedSplit[]) => {
+    if (!savedAchievementId || !savedEntryId) return;
+
+    try {
+      await saveSplitAchievements.mutateAsync({
+        originalAchievementId: savedAchievementId,
+        entryId: savedEntryId,
+        projectId: selectedProjectId,
+        splits: selectedSplits,
+      });
+      router.replace('/(tabs)');
+    } catch (err) {
+      console.error('[NewEntry] Split save failed:', err);
+    }
   };
 
   return (
@@ -199,6 +231,8 @@ export default function NewEntryScreen() {
           selectedProjectId={selectedProjectId}
           onProjectSelect={setSelectedProjectId}
           onSynthesize={handleSynthesize}
+          onTranscript={handleTranscript}
+          audioMeta={audioMeta}
         />
       )}
 
@@ -217,6 +251,8 @@ export default function NewEntryScreen() {
           onAddAnother={handleAddAnother}
           saving={false}
           onNameChange={setAchievementName}
+          onAcceptSplits={handleAcceptSplits}
+          splittingSaving={saveSplitAchievements.isPending}
         />
       )}
     </View>
