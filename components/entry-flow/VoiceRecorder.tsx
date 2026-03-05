@@ -38,14 +38,24 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
     };
   }, []);
 
+  const autoStopRef = useRef(false);
+
   const startTimer = useCallback(() => {
     setElapsed(0);
+    autoStopRef.current = false;
     timerRef.current = setInterval(() => {
       setElapsed((prev) => {
-        if (prev + 1 >= MAX_DURATION_SEC) {
-          // Auto-stop at 5 minutes
-          handleStop();
-          return prev + 1;
+        if (prev + 1 >= MAX_DURATION_SEC && !autoStopRef.current) {
+          autoStopRef.current = true;
+          // Clear interval first, then stop async outside setState
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          // Trigger stop outside the setState callback
+          setTimeout(() => {
+            recordingRef.current?.stop().catch(() => {});
+          }, 0);
         }
         return prev + 1;
       });
@@ -62,6 +72,12 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
   const handleStart = async () => {
     setErrorMsg('');
     try {
+      if (!userId) {
+        setErrorMsg('Please sign in to record.');
+        setState('error');
+        return;
+      }
+
       const permitted = await requestMicPermission();
       if (!permitted) {
         setErrorMsg('Microphone access denied. Check your browser or device settings.');

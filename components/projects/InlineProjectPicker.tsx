@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
 } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { colors } from '@/constants/colors';
@@ -51,11 +51,13 @@ export function InlineProjectPicker({ selectedProjectId, onSelect }: InlineProje
 
   return (
     <View style={styles.dropdown}>
-      <FlatList
-        data={projects ?? []}
-        keyExtractor={(item) => item.project_id}
-        renderItem={({ item }) => (
+      <ScrollView style={styles.list} nestedScrollEnabled>
+        {(projects ?? []).length === 0 && (
+          <Text style={styles.noProjects}>No projects yet</Text>
+        )}
+        {(projects ?? []).map((item) => (
           <TouchableOpacity
+            key={item.project_id}
             style={styles.dropdownItem}
             onPress={() => {
               onSelect(item.project_id);
@@ -65,21 +67,15 @@ export function InlineProjectPicker({ selectedProjectId, onSelect }: InlineProje
             <FontAwesome name="folder-o" size={13} color={colors.umber} />
             <Text style={styles.dropdownName}>{item.name}</Text>
           </TouchableOpacity>
-        )}
-        ListFooterComponent={
-          <TouchableOpacity
-            style={styles.newProjectRow}
-            onPress={() => setShowNewProject(true)}
-          >
-            <FontAwesome name="plus" size={12} color={colors.moss} />
-            <Text style={styles.newProjectText}>New project…</Text>
-          </TouchableOpacity>
-        }
-        ListEmptyComponent={
-          <Text style={styles.noProjects}>No projects yet</Text>
-        }
-        style={styles.list}
-      />
+        ))}
+        <TouchableOpacity
+          style={styles.newProjectRow}
+          onPress={() => setShowNewProject(true)}
+        >
+          <FontAwesome name="plus" size={12} color={colors.moss} />
+          <Text style={styles.newProjectText}>New project…</Text>
+        </TouchableOpacity>
+      </ScrollView>
       <TouchableOpacity style={styles.cancelRow} onPress={() => setOpen(false)}>
         <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>

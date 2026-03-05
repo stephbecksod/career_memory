@@ -4,8 +4,8 @@ import { useUserStore } from '@/stores/userStore';
 import { synthesizeRecentFocus } from '@/lib/synthesis';
 
 /**
- * Fetches the 3 most recent entries and generates a Recent Focus AI summary.
- * Returns null if fewer than 3 entries exist (cold state).
+ * Generates a Recent Focus AI summary once the user has 2+ synthesized achievements.
+ * Fetches the most recent achievements, groups by entry, and calls the synthesis API.
  * Cached with 5-minute staleTime to avoid re-calling on every Home visit.
  */
 export function useRecentFocus() {
@@ -16,37 +16,36 @@ export function useRecentFocus() {
     queryFn: async (): Promise<string | null> => {
       if (!userId) return null;
 
-      // Fetch 3 most recent entries with their summaries
+      // Fetch recent synthesized achievements (need at least 2)
+      const { data: achievements } = await supabase
+        .from('professional_achievements')
+        .select('achievement_id, entry_id, ai_generated_name')
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .not('ai_generated_name', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!achievements || achievements.length < 2) {
+        return null; // Cold state — need at least 2 achievements
+      }
+
+      // Get the unique entry IDs for these achievements
+      const entryIds = [...new Set(achievements.map((a) => a.entry_id))];
+
+      // Fetch entry data for context
       const { data: entries } = await supabase
         .from('entries')
         .select('entry_id, entry_date, ai_generated_summary')
-        .eq('user_id', userId)
-        .is('deleted_at', null)
-        .order('entry_date', { ascending: false })
-        .limit(3);
-
-      if (!entries || entries.length < 3) {
-        return null; // Cold state
-      }
-
-      // Fetch achievement names for each entry
-      const entryIds = entries.map((e) => e.entry_id);
-      const { data: achievements } = await supabase
-        .from('professional_achievements')
-        .select('entry_id, ai_generated_name')
         .in('entry_id', entryIds)
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .order('entry_date', { ascending: false });
 
-      // Skip if none of the entries have real synthesized content yet
-      const hasAnySynthesis = (achievements ?? []).some((a) => a.ai_generated_name);
-      const hasAnySummary = entries.some((e) => e.ai_generated_summary);
-      if (!hasAnySynthesis && !hasAnySummary) {
-        console.log('[RecentFocus] No synthesized content yet — skipping API call');
-        return null;
-      }
+      if (!entries || entries.length === 0) return null;
 
+      // Group achievement names by entry
       const achievementsByEntry = new Map<string, string[]>();
-      for (const a of achievements ?? []) {
+      for (const a of achievements) {
         const names = achievementsByEntry.get(a.entry_id) ?? [];
         names.push(a.ai_generated_name || 'Untitled');
         achievementsByEntry.set(a.entry_id, names);

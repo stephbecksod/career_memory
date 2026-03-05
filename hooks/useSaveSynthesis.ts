@@ -5,6 +5,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { SYNTHESIS_STATUS, SOURCE_PLATFORM } from '@/constants/app';
 import { synthesizeEntrySummary, synthesizeProjectSummary } from '@/lib/synthesis';
 import type { SynthesisResult, SuggestedSplit } from '@/types/app';
+import { generateUUID } from '@/lib/uuid';
 
 interface SaveSynthesisInput {
   achievementId: string;
@@ -303,7 +304,7 @@ export function useSaveSplitAchievements() {
       const createdIds: string[] = [];
 
       for (const split of splits) {
-        const achievementId = crypto.randomUUID();
+        const achievementId = generateUUID();
         createdIds.push(achievementId);
 
         const row: Record<string, unknown> = {

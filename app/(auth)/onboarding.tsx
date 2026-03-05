@@ -27,10 +27,17 @@ const STEPS = {
 } as const;
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const ALL_DAYS_INDICES = [0, 1, 2, 3, 4, 5, 6];
+const OCCURRENCES = ['1st', '2nd', '3rd', '4th'];
+const SPECIFIC_DATES = ['1st', '15th', 'Last'];
+
+function encodeDaysBitmask(days: number[]): number {
+  return days.reduce((mask, day) => mask | (1 << day), 0);
+}
 
 const CADENCES = [
+  { id: 'daily', label: 'Daily', sub: 'Every day' },
   { id: 'weekly', label: 'Weekly', sub: 'Once a week' },
-  { id: 'biweekly', label: 'Biweekly', sub: 'Every two weeks' },
   { id: 'monthly', label: 'Monthly', sub: 'Once a month' },
 ] as const;
 
@@ -70,8 +77,13 @@ export default function OnboardingScreen() {
   const [roleTitle, setRoleTitle] = useState('');
 
   // Step 3: Notifications
-  const [cadence, setCadence] = useState<string>('weekly');
+  const [cadence, setCadence] = useState<string>('daily');
+  const [dailyDays, setDailyDays] = useState<number[]>(ALL_DAYS_INDICES);
   const [dayOfWeek, setDayOfWeek] = useState('Fri');
+  const [monthMode, setMonthMode] = useState<'occurrence' | 'date'>('occurrence');
+  const [occurrence, setOccurrence] = useState('1st');
+  const [occDay, setOccDay] = useState('Mon');
+  const [specificDate, setSpecificDate] = useState('1st');
   const [hour, setHour] = useState('5');
   const [minute, setMinute] = useState('00');
   const [ampm, setAmpm] = useState('PM');
@@ -82,6 +94,16 @@ export default function OnboardingScreen() {
       return 'America/New_York';
     }
   });
+
+  const toggleDailyDay = (dayIndex: number) => {
+    setDailyDays((prev) => {
+      if (prev.includes(dayIndex)) {
+        if (prev.length <= 1) return prev; // don't deselect all
+        return prev.filter((d) => d !== dayIndex);
+      }
+      return [...prev, dayIndex].sort();
+    });
+  };
 
   const goNext = () => setStep((s) => s + 1);
   const goBack = () => setStep((s) => s - 1);
@@ -162,12 +184,19 @@ export default function OnboardingScreen() {
       if (ampm === 'AM' && hourNum === 12) hourNum = 0;
       const timeStr = `${String(hourNum).padStart(2, '0')}:${minute}`;
 
-      const dbCadence = cadence === 'biweekly' ? 'custom' : cadence;
+      // Daily → stored as 'custom' with days bitmask
+      const dbCadence = cadence === 'daily' ? 'custom' : cadence;
+      let dbDayOfWeek: number | null = null;
+      if (cadence === 'daily') {
+        dbDayOfWeek = encodeDaysBitmask(dailyDays.length > 0 ? dailyDays : ALL_DAYS_INDICES);
+      } else if (cadence === 'weekly') {
+        dbDayOfWeek = dayIndex;
+      }
 
       await createSchedule.mutateAsync({
-        label: cadence === 'weekly' ? 'Weekly check-in' : cadence === 'biweekly' ? 'Biweekly check-in' : 'Monthly check-in',
+        label: cadence === 'daily' ? 'Daily check-in' : cadence === 'weekly' ? 'Weekly check-in' : 'Monthly check-in',
         cadence_type: dbCadence as 'weekly' | 'monthly' | 'quarterly' | 'custom',
-        day_of_week: (cadence === 'weekly' || cadence === 'biweekly') ? dayIndex : null,
+        day_of_week: dbDayOfWeek,
         notification_time: timeStr,
         timezone: tz,
         is_active: true,
@@ -446,8 +475,33 @@ export default function OnboardingScreen() {
             ))}
           </View>
 
-          {/* Day picker */}
-          {(cadence === 'weekly' || cadence === 'biweekly') && (
+          {/* Daily: multi-select days */}
+          {cadence === 'daily' && (
+            <>
+              <Text style={styles.sectionLabel}>DAYS</Text>
+              <View style={styles.dayRow}>
+                {DAYS.map((d, i) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.dayPill, dailyDays.includes(i) && styles.dayPillSelected]}
+                    onPress={() => toggleDailyDay(i)}
+                  >
+                    <Text
+                      style={[
+                        styles.dayPillText,
+                        dailyDays.includes(i) && styles.dayPillTextSelected,
+                      ]}
+                    >
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+
+          {/* Weekly: single-select day */}
+          {cadence === 'weekly' && (
             <>
               <Text style={styles.sectionLabel}>DAY</Text>
               <View style={styles.dayRow}>
@@ -468,6 +522,80 @@ export default function OnboardingScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </>
+          )}
+
+          {/* Monthly: day selection */}
+          {cadence === 'monthly' && (
+            <>
+              <Text style={styles.sectionLabel}>DAY SELECTION</Text>
+              <View style={styles.modeToggle}>
+                <TouchableOpacity
+                  style={[styles.modePill, monthMode === 'occurrence' && styles.modePillSelected]}
+                  onPress={() => setMonthMode('occurrence')}
+                >
+                  <Text style={[styles.modePillText, monthMode === 'occurrence' && styles.modePillTextSelected]}>
+                    Day of week
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modePill, monthMode === 'date' && styles.modePillSelected]}
+                  onPress={() => setMonthMode('date')}
+                >
+                  <Text style={[styles.modePillText, monthMode === 'date' && styles.modePillTextSelected]}>
+                    Specific date
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {monthMode === 'occurrence' && (
+                <View style={{ marginBottom: 8 }}>
+                  <Text style={styles.subLabel}>Which occurrence</Text>
+                  <View style={styles.dayRow}>
+                    {OCCURRENCES.map((o) => (
+                      <TouchableOpacity
+                        key={o}
+                        style={[styles.dayPill, occurrence === o && styles.dayPillSelected]}
+                        onPress={() => setOccurrence(o)}
+                      >
+                        <Text style={[styles.dayPillText, occurrence === o && styles.dayPillTextSelected]}>
+                          {o}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={[styles.subLabel, { marginTop: 8 }]}>Day of week</Text>
+                  <View style={styles.dayRow}>
+                    {DAYS.map((d) => (
+                      <TouchableOpacity
+                        key={d}
+                        style={[styles.dayPill, occDay === d && styles.dayPillSelected]}
+                        onPress={() => setOccDay(d)}
+                      >
+                        <Text style={[styles.dayPillText, occDay === d && styles.dayPillTextSelected]}>
+                          {d}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {monthMode === 'date' && (
+                <View style={[styles.dayRow, { marginBottom: 8 }]}>
+                  {SPECIFIC_DATES.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.dayPill, specificDate === d && styles.dayPillSelected]}
+                      onPress={() => setSpecificDate(d)}
+                    >
+                      <Text style={[styles.dayPillText, specificDate === d && styles.dayPillTextSelected]}>
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </>
           )}
 
@@ -560,7 +688,13 @@ export default function OnboardingScreen() {
           {/* Summary */}
           <View style={styles.summaryBox}>
             <Text style={styles.summaryText}>
-              Every {cadence === 'weekly' ? dayOfWeek : cadence === 'biweekly' ? `other ${dayOfWeek}` : 'month'} at {hour}:{minute} {ampm} · {tzLabel}
+              {cadence === 'daily'
+                ? (dailyDays.length === 7 ? 'Every day' : dailyDays.map((d) => DAYS[d]).join(', '))
+                : cadence === 'weekly'
+                  ? `Every ${dayOfWeek}`
+                  : monthMode === 'occurrence'
+                    ? `${occurrence} ${occDay} of each month`
+                    : `${specificDate} of each month`} at {hour}:{minute} {ampm} · {tzLabel}
             </Text>
           </View>
         </ScrollView>
@@ -696,6 +830,8 @@ const styles = StyleSheet.create({
   },
   welcomeFeatures: {
     alignSelf: 'center',
+    width: '85%',
+    maxWidth: 340,
     marginBottom: 28,
   },
   featureRow: {
@@ -954,6 +1090,41 @@ const styles = StyleSheet.create({
   dayPillTextSelected: {
     fontFamily: 'DMSans_500Medium',
     color: 'white',
+  },
+
+  // Monthly mode toggle
+  modeToggle: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modePill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+  },
+  modePillSelected: {
+    backgroundColor: colors.moss,
+    borderColor: colors.moss,
+  },
+  modePillText: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 13,
+    color: colors.umber,
+  },
+  modePillTextSelected: {
+    color: 'white',
+  },
+  subLabel: {
+    fontFamily: 'DMSans_500Medium',
+    fontSize: 11,
+    color: colors.umber,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
   },
 
   // Time picker

@@ -29,10 +29,10 @@ export async function requestMicPermission(): Promise<boolean> {
     }
   }
 
-  // Native: use expo-av
-  const { Audio } = require('expo-av');
-  const { status } = await Audio.requestPermissionsAsync();
-  return status === 'granted';
+  // Native: use expo-audio
+  const { requestRecordingPermissionsAsync } = require('expo-audio');
+  const { granted } = await requestRecordingPermissionsAsync();
+  return granted;
 }
 
 /**
@@ -48,30 +48,32 @@ export async function startRecording(): Promise<RecordingHandle> {
 }
 
 // ---------------------------------------------------------------------------
-// Native (iOS/Android) — expo-av
+// Native (iOS/Android) — expo-audio
 // ---------------------------------------------------------------------------
 
 async function startNativeRecording(): Promise<RecordingHandle> {
-  const { Audio } = require('expo-av');
+  const { setAudioModeAsync, RecordingPresets } = require('expo-audio');
+  const AudioModule = require('expo-audio/build/AudioModule').default;
 
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: true,
-    playsInSilentModeIOS: true,
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
   });
 
-  const recording = new Audio.Recording();
-  await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-  await recording.startAsync();
+  const { createRecordingOptions } = require('expo-audio/build/utils/options');
+  const opts = createRecordingOptions(RecordingPresets.HIGH_QUALITY);
+  const recorder = new AudioModule.AudioRecorder(opts);
+
+  await recorder.prepareToRecordAsync();
+  recorder.record();
 
   const startTime = Date.now();
-  let cancelled = false;
 
   // Auto-stop at max duration
   const maxTimer = setTimeout(async () => {
     try {
-      const status = await recording.getStatusAsync();
-      if (status.isRecording) {
-        await recording.stopAndUnloadAsync();
+      if (recorder.isRecording) {
+        await recorder.stop();
       }
     } catch {
       // Already stopped
@@ -81,19 +83,18 @@ async function startNativeRecording(): Promise<RecordingHandle> {
   return {
     stop: async (): Promise<RecordingResult> => {
       clearTimeout(maxTimer);
-      const status = await recording.getStatusAsync();
-      if (status.isRecording) {
-        await recording.stopAndUnloadAsync();
+      if (recorder.isRecording) {
+        await recorder.stop();
       }
-      const uri = recording.getURI();
+      const uri = recorder.uri;
       if (!uri) throw new Error('No recording URI available');
 
       const durationMs = Date.now() - startTime;
 
       // Reset audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
       });
 
       return {
@@ -103,12 +104,11 @@ async function startNativeRecording(): Promise<RecordingHandle> {
       };
     },
     cancel: () => {
-      cancelled = true;
       clearTimeout(maxTimer);
-      recording.stopAndUnloadAsync().catch(() => {});
-      Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
+      recorder.stop().catch(() => {});
+      setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
       }).catch(() => {});
     },
   };

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, ensureAuthSession } from '@/lib/supabase';
 import { useUserStore } from '@/stores/userStore';
+import { generateUUID } from '@/lib/uuid';
 
 interface CompanyInput {
   name: string;
@@ -21,7 +22,7 @@ export function useCompanyMutations() {
   const createCompany = useMutation({
     mutationFn: async (input: CompanyInput) => {
       const authUserId = await ensureAuthSession();
-      const companyId = crypto.randomUUID();
+      const companyId = generateUUID();
 
       // If marking as current, only unset is_current on other companies
       // Do NOT auto-set end_date — that's the user's responsibility

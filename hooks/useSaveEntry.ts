@@ -5,6 +5,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { todayLocalDate } from '@/lib/dates';
 import { SECTION_TYPE, ENTRY_STATUS, SYNTHESIS_STATUS, SOURCE_PLATFORM } from '@/constants/app';
 import type { AudioMeta } from '@/types/app';
+import { generateUUID } from '@/lib/uuid';
 
 interface SaveEntryInput {
   mainInput: string;
@@ -66,7 +67,7 @@ export function useSaveEntry() {
         entryId = existingEntry.entry_id;
         console.log('[SaveEntry] Reusing existing entry:', entryId);
       } else {
-        entryId = crypto.randomUUID();
+        entryId = generateUUID();
         console.log('[SaveEntry] Creating new entry:', entryId);
         const { error: entryError } = await withTimeout(
           supabase
@@ -103,7 +104,7 @@ export function useSaveEntry() {
       const displayOrder = (existingCount ?? 0) + 1;
 
       // 3. Create achievement with pending synthesis status
-      const achievementId = crypto.randomUUID();
+      const achievementId = generateUUID();
       console.log('[SaveEntry] Creating achievement:', achievementId);
       const achievementRow = {
         achievement_id: achievementId,

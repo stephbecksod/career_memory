@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stephsod3.careermemory",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Career Memory needs microphone access to record voice entries."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,24 +27,33 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["RECORD_AUDIO"]
     },
     "web": {
       "bundler": "metro",
-      "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single"
     },
     "plugins": [
+      "./plugins/withExpoWebCache",
       "expo-router",
       [
         "expo-notifications",
         {
           "sounds": []
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a3bf8a89-c41e-4eb9-91d1-7928863690ee"
+      }
     }
   }
 }

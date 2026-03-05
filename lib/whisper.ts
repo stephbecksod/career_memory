@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { supabase, withTimeout } from '@/lib/supabase';
-import { decode as base64Decode } from 'base64-arraybuffer';
+import { generateUUID } from '@/lib/uuid';
 
 const AUDIO_BUCKET = 'audio-recordings';
 const DEFAULT_RETENTION_DAYS = 30;
@@ -24,7 +24,7 @@ export async function transcribeAudio(
 ): Promise<TranscriptionResult> {
   // Determine file extension from mimeType
   const ext = mimeExtension(mimeType);
-  const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const storagePath = `${userId}/${generateUUID()}.${ext}`;
 
   console.log('[whisper] Uploading audio to Storage:', storagePath);
 
@@ -105,14 +105,11 @@ async function uploadWeb(uri: string, storagePath: string, mimeType: string): Pr
   }
 }
 
-/** Native: read file as base64 via expo-file-system, decode, and upload */
+/** Native: read audio file and upload via expo-file-system File class (SDK 55+) */
 async function uploadNative(uri: string, storagePath: string, mimeType: string): Promise<void> {
-  const FileSystem = require('expo-file-system');
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const arrayBuffer = base64Decode(base64);
+  const { File } = require('expo-file-system');
+  const file = new File(uri);
+  const arrayBuffer = await file.arrayBuffer();
 
   const { error } = await supabase.storage
     .from(AUDIO_BUCKET)

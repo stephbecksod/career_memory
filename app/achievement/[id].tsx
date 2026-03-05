@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useTags } from '@/hooks/useTags';
 import { synthesizeProjectSummary } from '@/lib/synthesis';
 import { useUserStore } from '@/stores/userStore';
+import { generateUUID } from '@/lib/uuid';
 import { colors } from '@/constants/colors';
 import { layout } from '@/constants/layout';
 import { BackButton } from '@/components/ui/BackButton';
@@ -173,7 +174,7 @@ export default function AchievementDetailScreen() {
       if (existingTags && existingTags.length > 0) {
         tagId = existingTags[0].tag_id;
       } else {
-        const newTagId = crypto.randomUUID();
+        const newTagId = generateUUID();
         const { error } = await supabase.from('tags').insert({
           tag_id: newTagId,
           user_id: userId,

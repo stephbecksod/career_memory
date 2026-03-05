@@ -10,6 +10,25 @@ Entries are in **reverse chronological order** (newest first).
 
 ---
 
+## [2026-03-05] — Fix voice transcription "Base64 of undefined" crash on native
+
+**Area:** Audio, Transcription
+**Type:** Bug Fix
+
+### What
+Voice recording on native (iPhone) crashed with `TypeError: Cannot read property 'Base64' of undefined` during the audio upload step in `lib/whisper.ts`.
+
+### Why
+The `uploadNative()` function used `FileSystem.EncodingType.Base64` to specify base64 encoding when reading the audio file. However, `require('expo-file-system')` in the React Native runtime does not reliably expose the `EncodingType` enum as a property — it comes back as `undefined`. The fix replaces `FileSystem.EncodingType.Base64` with the string literal `'base64'`, which is the actual value the enum resolves to.
+
+### Impact
+Voice recording on native now works. No change to web behavior (web uses a completely different upload path via `fetch` + blob).
+
+### Watch Out For
+Other `require('expo-file-system')` usages should use string literals for encoding types rather than `EncodingType` enum references when using dynamic `require()` imports.
+
+---
+
 ## [2026-03-03] — Replace biweekly with daily cadence, auth session resilience, onboarding layout
 
 **Area:** Notifications, Auth, Onboarding
