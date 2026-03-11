@@ -39,7 +39,7 @@ export default function RootLayout() {
     DMSans_500Medium,
   });
 
-  const { initialize, initialized, loading, setSession, fetchProfile, clear } = useUserStore();
+  const { initialize, initialized, loading, setSession, fetchProfile, clear, authUser } = useUserStore();
 
   useEffect(() => {
     initialize();
@@ -71,6 +71,26 @@ export default function RootLayout() {
     });
     return () => cleanup?.();
   }, []);
+
+  // Sync notification schedules with the OS on startup (native only)
+  useEffect(() => {
+    if (Platform.OS === 'web' || !authUser?.id) return;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from('notification_schedules')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .is('deleted_at', null);
+        if (data && data.length > 0) {
+          const { syncAllSchedules } = await import('@/lib/notifications');
+          await syncAllSchedules(data);
+        }
+      } catch (err) {
+        console.error('[notifications] Startup sync failed:', err);
+      }
+    })();
+  }, [authUser?.id]);
 
   useEffect(() => {
     if (fontError) throw fontError;
