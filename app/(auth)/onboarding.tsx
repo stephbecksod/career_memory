@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -17,6 +20,46 @@ import { useUserStore } from '@/stores/userStore';
 import { useCompanyMutations } from '@/hooks/useCompanyMutations';
 import { useNotificationSchedules } from '@/hooks/useNotificationSchedules';
 import { colors } from '@/constants/colors';
+
+const SCREEN_H = Dimensions.get('window').height;
+
+const WELCOME_FEATURES = [
+  { emoji: '🎙️', tint: 'rgba(92,122,82,0.5)',    label: 'Voice-first capture — done in 60 seconds' },
+  { emoji: '✨',  tint: 'rgba(201,148,26,0.3)',   label: 'AI turns your words into polished bullets' },
+  { emoji: '📋',  tint: 'rgba(173,156,142,0.25)', label: 'Resume-ready when you need it' },
+];
+
+function AnimatedFeatureRow({ emoji, tint, label, delay }: { emoji: string; tint: string; label: string; delay: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 420,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        welcomeStyles.featureRow,
+        {
+          opacity: anim,
+          transform: [{
+            translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }),
+          }],
+        },
+      ]}
+    >
+      <View style={[welcomeStyles.featureIconWrap, { backgroundColor: tint }]}>
+        <Text style={welcomeStyles.featureEmoji}>{emoji}</Text>
+      </View>
+      <Text style={welcomeStyles.featureLabel}>{label}</Text>
+    </Animated.View>
+  );
+}
 
 const STEPS = {
   WELCOME: 0,
@@ -57,6 +100,116 @@ const TIMEZONES = [
 
 const HOURS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 const MINUTES = ['00', '15', '30', '45'];
+
+function WelcomeNative({ session, onNext, router }: { session: any; onNext: () => void; router: any }) {
+  const logoAnim    = useRef(new Animated.Value(0)).current;
+  const headingAnim = useRef(new Animated.Value(0)).current;
+  const subAnim     = useRef(new Animated.Value(0)).current;
+  const btnsAnim    = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const run = (anim: Animated.Value, delay: number) =>
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 480,
+        delay,
+        useNativeDriver: true,
+      });
+
+    Animated.stagger(80, [
+      run(logoAnim, 100),
+      run(headingAnim, 0),
+      run(subAnim, 0),
+      run(btnsAnim, 0),
+    ]).start();
+  }, []);
+
+  const fade = (anim: Animated.Value, dy = 14) => ({
+    opacity: anim,
+    transform: [{
+      translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [dy, 0] }),
+    }],
+  });
+
+  return (
+    <View style={welcomeStyles.root}>
+      {/* Gradient background */}
+      <LinearGradient
+        colors={['#7a9e6e', '#5C7A52', '#4a6840']}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <SafeAreaView style={welcomeStyles.safe} edges={['top', 'bottom']}>
+        <View style={welcomeStyles.card}>
+          {/* Logo mark */}
+          <Animated.View style={[welcomeStyles.logoWrap, fade(logoAnim, -12)]}>
+            <Text style={welcomeStyles.logoStar}>★</Text>
+          </Animated.View>
+
+          {/* Eyebrow */}
+          <Animated.Text style={[welcomeStyles.eyebrow, fade(headingAnim)]}>
+            Career Memory
+          </Animated.Text>
+
+          {/* Headline */}
+          <Animated.View style={fade(headingAnim)}>
+            <Text style={welcomeStyles.headline}>
+              {'Your career,\n'}
+              <Text style={welcomeStyles.headlineMuted}>{'finally '}</Text>
+              {'remembered.'}
+            </Text>
+          </Animated.View>
+
+          {/* Subline */}
+          <Animated.Text style={[welcomeStyles.subline, fade(subAnim)]}>
+            Capture what you accomplish as it happens. Use it when it counts — for reviews, resumes, and job searches.
+          </Animated.Text>
+
+          {/* Feature rows */}
+          <View style={welcomeStyles.features}>
+            {WELCOME_FEATURES.map((f, i) => (
+              <AnimatedFeatureRow key={f.label} {...f} delay={320 + i * 80} />
+            ))}
+          </View>
+
+          {/* Divider */}
+          <Animated.View style={[welcomeStyles.divider, fade(btnsAnim)]} />
+
+          {/* CTA buttons */}
+          <Animated.View style={[welcomeStyles.btnGroup, fade(btnsAnim)]}>
+            {session ? (
+              <TouchableOpacity
+                style={welcomeStyles.btnPrimary}
+                activeOpacity={0.87}
+                onPress={onNext}
+              >
+                <Text style={welcomeStyles.btnPrimaryLabel}>Get started</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={welcomeStyles.btnPrimary}
+                  activeOpacity={0.87}
+                  onPress={() => router.push('/(auth)/sign-in')}
+                >
+                  <Text style={welcomeStyles.btnPrimaryLabel}>Sign in</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={welcomeStyles.btnSecondary}
+                  activeOpacity={0.72}
+                  onPress={() => router.push('/(auth)/sign-up')}
+                >
+                  <Text style={welcomeStyles.btnSecondaryLabel}>Create an account</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -224,78 +377,21 @@ export default function OnboardingScreen() {
   // ─── Render Steps ─────────────────────────────────────────────────────
 
   if (step === STEPS.WELCOME) {
-    return (
-      <LinearGradient
-        colors={['#3A5232', '#4A6642', '#5C7A52']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={styles.welcomeContainer}
-      >
-        <SafeAreaView style={styles.welcomeInner} edges={['top', 'bottom']}>
-          {/* Top spacer */}
-          <View style={{ flex: 1 }} />
+    // Web: use dedicated CSS-based welcome screen
+    if (Platform.OS === 'web') {
+      const WelcomeWeb = require('@/components/onboarding/WelcomeWeb').default;
+      return (
+        <WelcomeWeb
+          hasSession={!!session}
+          onGetStarted={goNext}
+          onSignIn={() => router.push('/(auth)/sign-in')}
+          onCreateAccount={() => router.push('/(auth)/sign-up')}
+        />
+      );
+    }
 
-          {/* Hero: icon + title + subtitle */}
-          <View style={styles.welcomeContent}>
-            <View style={styles.welcomeIcon}>
-              <FontAwesome name="star" size={32} color="white" />
-            </View>
-            <Text style={styles.welcomeTitle}>
-              {'Your career,\nfinally remembered.'}
-            </Text>
-            <Text style={styles.welcomeSubtitle}>
-              Capture what you accomplish as it happens. Use it when it counts — for reviews, resumes, and job searches.
-            </Text>
-          </View>
-
-          {/* Middle spacer */}
-          <View style={{ flex: 0.6 }} />
-
-          {/* Feature bullets */}
-          <View style={styles.welcomeFeatures}>
-            {[
-              { emoji: '\uD83C\uDFA4', text: 'Voice-first capture — done in 60 seconds' },
-              { emoji: '\u2728', text: 'AI turns your words into polished bullets' },
-              { emoji: '\uD83D\uDCCB', text: 'Resume-ready when you need it' },
-            ].map((feature, i) => (
-              <View key={i} style={styles.featureRow}>
-                <View style={styles.featureIcon}>
-                  <Text style={styles.featureEmoji}>{feature.emoji}</Text>
-                </View>
-                <Text style={styles.featureText}>{feature.text}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Bottom spacer */}
-          <View style={{ flex: 0.6 }} />
-
-          {/* Buttons */}
-          <View style={styles.welcomeButtons}>
-            {session ? (
-              <TouchableOpacity style={styles.getStartedBtn} onPress={goNext}>
-                <Text style={styles.getStartedText}>Get started</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={styles.getStartedBtn}
-                  onPress={() => router.push('/(auth)/sign-in')}
-                >
-                  <Text style={styles.getStartedText}>Sign in</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.hasAccountBtn}
-                  onPress={() => router.push('/(auth)/sign-up')}
-                >
-                  <Text style={styles.hasAccountText}>Create an account</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-    );
+    // Native: animated welcome screen
+    return <WelcomeNative session={session} onNext={goNext} router={router} />;
   }
 
   if (step === STEPS.NAME) {
@@ -790,105 +886,152 @@ function ProgressDots({ total, current }: { total: number; current: number }) {
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  // Welcome
-  welcomeContainer: {
+// Welcome screen styles (native)
+const welcomeStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#5C7A52',
+  },
+  safe: {
     flex: 1,
   },
-  welcomeInner: {
+  card: {
     flex: 1,
-    justifyContent: 'space-between',
-  },
-  welcomeContent: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  welcomeIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 22,
+    paddingHorizontal: 28,
+    paddingBottom: Platform.OS === 'android' ? 16 : 0,
   },
-  welcomeTitle: {
+  logoWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  logoStar: {
+    fontSize: 28,
+    color: 'rgba(255,255,255,0.92)',
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 2.2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.42)',
+    marginBottom: 10,
+  },
+  headline: {
     fontFamily: 'Nunito_700Bold',
     fontSize: 34,
     color: 'white',
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 41,
     letterSpacing: -0.5,
     marginBottom: 14,
   },
-  welcomeSubtitle: {
+  headlineMuted: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 34,
+    fontFamily: 'Nunito_700Bold',
+    lineHeight: 41,
+  },
+  subline: {
     fontFamily: 'DMSans_400Regular',
     fontSize: 15,
-    color: 'rgba(255,255,255,0.72)',
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.6)',
     textAlign: 'center',
-    lineHeight: 25,
+    lineHeight: 23,
+    marginBottom: 28,
+    maxWidth: 300,
   },
-  welcomeFeatures: {
-    alignSelf: 'center',
-    width: '85%',
-    maxWidth: 340,
+  features: {
+    width: '100%',
+    gap: 9,
     marginBottom: 28,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
   },
-  featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  featureIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
   featureEmoji: {
     fontSize: 16,
   },
-  featureText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 13.5,
-    color: 'rgba(255,255,255,0.85)',
-    lineHeight: 19,
+  featureLabel: {
     flex: 1,
+    fontSize: 13.5,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.82)',
+    letterSpacing: 0.1,
   },
-  welcomeButtons: {
-    alignSelf: 'center',
+  divider: {
     width: '100%',
-    maxWidth: 300,
-    paddingBottom: 32,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginBottom: 20,
   },
-  getStartedBtn: {
+  btnGroup: {
+    width: '100%',
+    gap: 10,
+  },
+  btnPrimary: {
     backgroundColor: 'white',
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
-    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  getStartedText: {
-    fontFamily: 'Nunito_700Bold',
-    fontSize: 16,
-    color: colors.mossDeep,
+  btnPrimaryLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2A2118',
+    letterSpacing: 0.1,
   },
-  hasAccountBtn: {
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+  btnSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 14,
-    paddingVertical: 13,
+    paddingVertical: 15,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  hasAccountText: {
-    fontFamily: 'DMSans_400Regular',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+  btnSecondaryLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.75)',
+    letterSpacing: 0.1,
   },
+});
 
+const styles = StyleSheet.create({
   // Common step layout
   container: {
     flex: 1,

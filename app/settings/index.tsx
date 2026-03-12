@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserStore } from '@/stores/userStore';
 import { useCompanies } from '@/hooks/useCompanies';
+import { supabase, ensureAuthSession } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 
 export default function SettingsIndex() {
@@ -22,11 +24,84 @@ export default function SettingsIndex() {
   const { profile, clear } = useUserStore();
   const { currentCompany } = useCompanies();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     clear();
     router.replace('/(auth)/sign-in');
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const userId = await ensureAuthSession();
+      const now = new Date().toISOString();
+
+      // Soft-delete all user data (children first for FK safety)
+      // achievement_tags — no deleted_at, but parent achievements will be soft-deleted
+      // achievement_responses — no deleted_at, but parent achievements will be soft-deleted
+
+      await supabase
+        .from('professional_achievements')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      await supabase
+        .from('entries')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      await supabase
+        .from('projects')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      await supabase
+        .from('companies')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      await supabase
+        .from('notification_schedules')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      // Soft-delete tags owned by this user
+      await supabase
+        .from('tags')
+        .update({ deleted_at: now })
+        .eq('user_id', userId)
+        .is('deleted_at', null);
+
+      // Clear current_company_id before soft-deleting the user row
+      await supabase
+        .from('users')
+        .update({ current_company_id: null, deleted_at: now })
+        .eq('user_id', userId);
+
+      // Delete auth.users row so the email can be reused for sign-up
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        await supabase.functions.invoke('delete-account', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+      }
+
+      // Sign out and clear local state
+      setShowDeleteConfirm(false);
+      await signOut();
+      clear();
+      router.replace('/(auth)/sign-in');
+    } catch (err) {
+      console.error('[Settings] Delete account failed:', err);
+      setDeleting(false);
+    }
   };
 
   const initial = profile?.first_name?.charAt(0)?.toUpperCase() || '?';
@@ -146,8 +221,16 @@ export default function SettingsIndex() {
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalDelete}>
-                <Text style={styles.modalDeleteText}>Delete</Text>
+              <TouchableOpacity
+                style={styles.modalDelete}
+                onPress={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <Text style={styles.modalDeleteText}>Delete</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
